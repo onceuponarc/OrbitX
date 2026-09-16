@@ -4,6 +4,7 @@ import { resolveLaunchMint, VanityTimeoutError, VANITY_SUFFIX } from "@/lib/sola
 import { buildCreateV2Tx, parseQuoteMintChoice, type PoolPairChoice } from "@/lib/solana/pump-sdk";
 import { sendSignedTx, waitForTx, explorerFromSig } from "@/lib/solana/partial-tx";
 import { fetchLatestBlockhash } from "@/lib/solana/blockhash";
+import { feeTransferInstructions, launchFeeLamports, WSOL_MINT } from "@/lib/solana/orbitx-fee";
 import { serverSolanaRpcs } from "@/lib/solana/rpc-urls";
 import { deskSolanaKey } from "@/lib/wallets/sign-desk";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -32,6 +33,17 @@ function normalizeUrl(raw: string | undefined, kind: "website" | "twitter" | "te
   if (kind === "twitter") return `https://x.com/${value.replace(/^@/, "")}`;
   if (kind === "telegram") return `https://t.me/${value.replace(/^@/, "")}`;
   return `https://${value}`;
+}
+
+async function solUsdPrice(): Promise<number> {
+  const response = await fetch("https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112", {
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("Could not price the launch fee right now.");
+  const payload = (await response.json()) as { data?: Record<string, { price?: string }> };
+  const price = Number(payload.data?.[WSOL_MINT]?.price);
+  if (!Number.isFinite(price) || price <= 0) throw new Error("Could not price the launch fee right now.");
+  return price;
 }
 
 export async function POST(request: Request) {
@@ -133,6 +145,16 @@ export async function POST(request: Request) {
       creatorFeeBps: requestedFeeBps,
       quoteMint,
     });
+
+    const launchFee = launchFeeLamports(await solUsdPrice());
+    built.tx.add(
+      ...feeTransferInstructions({
+        payer: payer.publicKey,
+        feeMint: WSOL_MINT,
+        feeRaw: launchFee,
+        decimals: 9,
+      }),
+    );
 
     const latest = await fetchLatestBlockhash(serverSolanaRpcs());
     built.tx.feePayer = payer.publicKey;
