@@ -7,8 +7,8 @@ import { assertUnblockedSigner, deployerPrivateKey, loadArcNetwork, traderPrivat
 
 export function requireArcNetwork(): ArcNetworkFile {
   const net = loadArcNetwork();
-  if (!net?.factory || !net.usdc) {
-    throw new Error("Arc Devnet is not wired. Start Anvil and deploy the Chapter Factory.");
+  if (!net?.usdc) {
+    throw new Error("Arc network is not configured. Set the Arc RPC and USDC configuration.");
   }
   return net;
 }

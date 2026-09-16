@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SolanaConnectButton } from "@/components/wallet/connect-button";
+import { useWalletSigner } from "@/components/wallet/use-wallet-signer";
 import { readApiJson } from "@/lib/http/read-json";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +33,7 @@ export function TradePanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ signature: string; explorer: string; outAmountUi: number } | null>(null);
+  const { address, signAndSend, ensureBound } = useWalletSigner();
 
   useEffect(() => {
     const value = Number(amount);
@@ -70,18 +73,24 @@ export function TradePanel({
   }, [tokenMint, quoteAsset, side, amount]);
 
   async function trade() {
+    if (!address) {
+      setError("Connect a Solana wallet before trading.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setResult(null);
     try {
-      const res = await fetch("/api/trade/swap", {
+      await ensureBound();
+      const res = await fetch("/api/trade/wallet-swap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tokenMint, quoteAsset, side, amount: Number(amount) }),
+        body: JSON.stringify({ tokenMint, quoteAsset, side, amount: Number(amount), userPublicKey: address }),
       });
-      const body = await readApiJson<{ error?: string; signature?: string; explorer?: string; outAmountUi?: number }>(res);
-      if (!res.ok || !body.signature) throw new Error(body.error ?? "Trade failed.");
-      setResult({ signature: body.signature, explorer: body.explorer ?? "", outAmountUi: body.outAmountUi ?? 0 });
+      const body = await readApiJson<{ error?: string; swapTransaction?: string; outAmountUi?: number }>(res);
+      if (!res.ok || !body.swapTransaction) throw new Error(body.error ?? "Could not build the wallet swap.");
+      const sent = await signAndSend(body.swapTransaction, true);
+      setResult({ signature: sent.signature, explorer: sent.explorer, outAmountUi: body.outAmountUi ?? 0 });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Trade failed.");
     } finally {
@@ -184,19 +193,16 @@ export function TradePanel({
         </p>
       ) : null}
 
-      {signedIn ? (
-        <Button
-          type="button"
-          onClick={() => void trade()}
-          disabled={busy || !quote}
-          className={cn("w-full", side === "sell" && "bg-sell hover:bg-sell/90")}
-        >
-          {busy ? "Trading…" : side === "buy" ? `Buy $${tokenSymbol}` : `Sell $${tokenSymbol}`}
-        </Button>
-      ) : (
-        <p className="text-center text-sm text-white/45">Sign in with X to trade with your desk wallet.</p>
-      )}
-      <p className="text-center text-[11px] text-white/30">Routed through Jupiter · your in-app Solana wallet signs</p>
+      {!address ? <SolanaConnectButton /> : null}
+      <Button
+        type="button"
+        onClick={() => void trade()}
+        disabled={busy || !quote || !address}
+        className={cn("w-full", side === "sell" && "bg-sell hover:bg-sell/90")}
+      >
+        {busy ? "Trading…" : side === "buy" ? `Buy ${tokenSymbol}` : `Sell ${tokenSymbol}`}
+      </Button>
+      <p className="text-center text-[11px] text-white/30">Routed through Jupiter · your connected Solana wallet signs</p>
     </div>
   );
 }

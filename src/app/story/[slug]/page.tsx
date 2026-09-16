@@ -13,13 +13,12 @@ import { explorerAddress, explorerTx } from "@/lib/solana/explorer";
 import { LaunchLinks } from "@/components/story/launch-links";
 import { LinkLp } from "@/components/story/link-lp";
 import { ArcTrade } from "@/components/arc/arc-trade";
-import { HoldersTable, PriceChart, StoryTape, type ChartTrade } from "@/components/story/market-panel";
+import { HoldersTable, StoryTape, type ChartTrade } from "@/components/story/market-panel";
 import { getLocalArcStory } from "@/lib/arc/store";
 import { LiveRefresh } from "@/components/pad/live-refresh";
 import { ChapterJacket } from "@/components/story/chapter-jacket";
 import { ShareChapter } from "@/components/story/share-chapter";
 import { loadArcStory } from "@/lib/arc/persist";
-import { chapterStartPriceUi, virtualQuoteUiFor } from "@onceupon/config/chapter";
 import { viewCardsForStory } from "@/lib/cards/resolve";
 import { CardRail } from "@/components/cards/card-rail";
 import { DexScreenerEmbed } from "@/components/token/dexscreener-embed";
@@ -304,11 +303,17 @@ export default async function StoryPage({
 
       {chain === "arc" ? (
         <div className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
-          <PriceChart
-            trades={trades}
-            fallbackPrice={chapterStartPriceUi(virtualQuoteUiFor(), 1_073_000_000)}
-            ticker={story.ticker}
-          />
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-white/50">
+              <p>Live market chart from DexScreener when this Arc pool is indexed.</p>
+              {story.token_address ? (
+                <a href={`https://www.geckoterminal.com/arc/tokens/${story.token_address}`} target="_blank" rel="noreferrer" className="shrink-0 underline">
+                  Open GeckoTerminal
+                </a>
+              ) : null}
+            </div>
+            <DexScreenerEmbed chain={chain} tokenAddress={story.token_address ?? null} />
+          </div>
           <div className="space-y-4">
             <Card>
               <CardHeader>

@@ -15,7 +15,8 @@ export function EvmTrade({ chain, token, curve, symbol, quoteLabel }: { chain: "
   async function submit() {
     setBusy(true); setError(null); setHash(null);
     try {
-      const res = await fetch(chain === "arc" ? "/api/arc/arcpad-trade" : "/api/rh/trade", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, curve, side, amount }) });
+      if (chain === "arc") throw new Error("Arc trading is not enabled yet: the direct Uniswap v4 pool route still requires verified pool-key and hook calldata simulation.");
+      const res = await fetch("/api/rh/trade", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, curve, side, amount }) });
       const body = await readApiJson<{ error?: string; hash?: string }>(res);
       if (!res.ok || !body.hash) throw new Error(body.error ?? "Trade failed.");
       setHash(body.hash);

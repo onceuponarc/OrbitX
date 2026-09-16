@@ -38,7 +38,6 @@ export const ARC_TESTNET = {
     wallet: "0x0077777d7EBA4688BDeF3E311b846F25870A19B9",
     minter: "0x0022222ABE238Cc2C7Bb1f21003F0a260052475B",
   },
-  factory: "0x3FD6f451803CD0eC616da6Ef8228E6EC56C24086" as `0x${string}`,
   router: null as `0x${string}` | null,
   vaultImpl: null as `0x${string}` | null,
   feeHook: null as `0x${string}` | null,
@@ -73,7 +72,6 @@ export const ARC_MAINNET = {
     "https://rpc.mainnet.arc.io",
   ],
   explorer: "https://arcscan.app",
-  factory: "0x3FD6f451803CD0eC616da6Ef8228E6EC56C24086" as `0x${string}`,
   note: "Early public mainnet. Chain 5042. Same USDC precompile as testnet.",
 } as const;
 

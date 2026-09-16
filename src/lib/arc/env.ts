@@ -18,7 +18,6 @@ export type ArcNetworkFile = {
   label: string;
   rpcUrl: string;
   chainId: number;
-  factory: `0x${string}`;
   usdc: `0x${string}`;
   trader: `0x${string}`;
   deployer: `0x${string}`;
@@ -28,42 +27,14 @@ export type ArcNetworkFile = {
 
 const FILE = process.env.ARC_DEVNET_FILE || join(process.cwd(), "data", "arc-devnet.json");
 
-const TESTNET_FACTORY = (ARC_TESTNET.factory ||
-  "0x3FD6f451803CD0eC616da6Ef8228E6EC56C24086") as `0x${string}`;
-
 export function loadArcNetwork(): ArcNetworkFile | null {
-  if (process.env.ARC_FACTORY && process.env.ARC_USDC) {
-    const chainId = Number(process.env.ARC_CHAIN_ID || 31337);
-    return {
-      label: "Arc",
-      rpcUrl:
-        process.env.ARC_RPC_URL ||
-        (chainId === ARC_MAINNET.chainId
-          ? ARC_MAINNET.rpcUrls[0]
-          : chainId === ARC_TESTNET.chainId
-            ? ARC_TESTNET.rpcUrls[0]
-            : "http://127.0.0.1:8546"),
-      chainId,
-      factory: process.env.ARC_FACTORY as `0x${string}`,
-      usdc: process.env.ARC_USDC as `0x${string}`,
-      trader: (process.env.ARC_TRADER as `0x${string}`) || ANVIL_TRADER.address,
-      deployer: (process.env.ARC_DEPLOYER as `0x${string}`) || ANVIL_DEPLOYER.address,
-      explorer:
-        process.env.ARC_EXPLORER ||
-        (chainId === ARC_MAINNET.chainId ? ARC_MAINNET.explorer : ARC_TESTNET.explorer),
-      nativeGas: isPublicArc(chainId) ? "usdc" : "eth",
-    };
-  }
   if (process.env.VERCEL || process.env.ARC_CHAIN_ID === String(ARC_MAINNET.chainId) || process.env.ARC_CHAIN_ID === String(ARC_TESTNET.chainId)) {
     const main = process.env.ARC_CHAIN_ID !== String(ARC_TESTNET.chainId);
     const net = main ? ARC_MAINNET : ARC_TESTNET;
     return {
       label: net.name,
-      rpcUrl: process.env.ARC_RPC_URL && !process.env.ARC_RPC_URL.includes("rpc.arc-scan.org")
-        ? process.env.ARC_RPC_URL
-        : net.rpcUrls[0],
+      rpcUrl: process.env.ARC_RPC_URL || net.rpcUrls[0],
       chainId: net.chainId,
-      factory: (process.env.ARC_FACTORY as `0x${string}` | undefined) || TESTNET_FACTORY,
       usdc: (process.env.ARC_USDC as `0x${string}` | undefined) || net.usdcErc20,
       trader: (process.env.ARC_TRADER as `0x${string}`) || "0xAce02417493B6E28431E5AdbBAfEdc6D1007E7b7",
       deployer: (process.env.ARC_DEPLOYER as `0x${string}`) || "0xAce02417493B6E28431E5AdbBAfEdc6D1007E7b7",

@@ -1,33 +1,8 @@
 import { cn } from "@/lib/utils";
 import { formatUsd, timeAgo } from "@/lib/format";
 import type { ChartTrade } from "@/lib/chart";
-import { TokenChart } from "@/components/story/token-chart";
 
 export type { ChartTrade };
-
-export function PriceChart({
-  trades,
-  fallbackPrice,
-  ticker,
-  mcapUi,
-  liquidityUi,
-}: {
-  trades: ChartTrade[];
-  fallbackPrice: number;
-  ticker?: string;
-  mcapUi?: number;
-  liquidityUi?: number;
-}) {
-  return (
-    <TokenChart
-      trades={trades}
-      fallbackPrice={fallbackPrice}
-      ticker={ticker}
-      mcapUi={mcapUi}
-      liquidityUi={liquidityUi}
-    />
-  );
-}
 
 export function HoldersTable({
   holders,
