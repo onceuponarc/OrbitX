@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { deskEvmWallet } from "@/lib/wallets/sign-desk";
-import { launchWithArcPad } from "@/lib/par/launchpad";
+import { launchWithArcPad } from "@/lib/arc/arcpad";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 import { createPublicClient, http, type Address } from "viem";
@@ -28,8 +28,7 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: "Sign in before launching." }, { status: 401 });
     const body = (await request.json()) as {
       title?: string; ticker?: string; blurb?: string; coverUrl?: string | null;
-      rightsAttested?: boolean; creator?: string; quoteAssets?: unknown;
-      feeMode?: string; creatorTaxBps?: number;
+      rightsAttested?: boolean;
     };
     const title = (body.title ?? "").trim();
     const ticker = (body.ticker ?? "").trim().toUpperCase();
@@ -41,7 +40,6 @@ export async function POST(request: Request) {
     const website = process.env.NEXT_PUBLIC_SITE_URL || PUBLIC_SITE_URL;
     const result = await launchWithArcPad({
       name: title, symbol: ticker, creator: address,
-      description: body.blurb?.trim() || "Launched on OrbitX",
       logo: body.coverUrl || undefined,
       twitter: profile?.handle ? `https://x.com/${profile.handle}` : undefined,
       website, wallet, pub,
@@ -54,12 +52,12 @@ export async function POST(request: Request) {
         cover_url: body.coverUrl ?? null, image_uri: body.coverUrl ?? null,
         website_url: website, twitter_url: profile?.handle ? `https://x.com/${profile.handle}` : null,
         author_user_id: user.id, author_wallet: address, engine: "author", status: "live",
-        author_bps: body.creatorTaxBps ?? 100, chain: "arc", venue: "arcpad", pair_class: "other",
+        author_bps: 0, chain: "arc", venue: "arcpad", pair_class: "other",
         pair_label: "USDC", 
         mint_decimals: 18, token_address: result.token, created_tx: result.hash,
       });
     } catch (insertError) {
-      console.error("Arc Par launch: stories insert failed", insertError);
+      console.error("ArcPad launch: stories insert failed", insertError);
     }
     return NextResponse.json({
       ...result, slug, creator: address, venue: "arcpad-arc-mainnet", chainId: 5042,

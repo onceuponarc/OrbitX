@@ -5,6 +5,7 @@ import {
   createWalletClient,
   fallback,
   http,
+  parseEventLogs,
   type Address,
   type Chain,
   type PublicClient,
@@ -66,6 +67,17 @@ export const ARCPAD_ABI = [
       { name: "twitter", type: "string" }, { name: "telegram", type: "string" },
     ] }, { name: "salt", type: "bytes32" },
   ], outputs: [] },
+  { type: "event", name: "TokenCreated", anonymous: false, inputs: [
+    { name: "token", type: "address", indexed: true },
+    { name: "creator", type: "address", indexed: true },
+    { name: "name", type: "string", indexed: false },
+    { name: "symbol", type: "string", indexed: false },
+    { name: "pool", type: "address", indexed: false },
+    { name: "imageURI", type: "string", indexed: false },
+    { name: "website", type: "string", indexed: false },
+    { name: "twitter", type: "string", indexed: false },
+    { name: "telegram", type: "string", indexed: false },
+  ] },
 ] as const;
 
 export async function launchWithArcPad(input: {
@@ -83,8 +95,11 @@ export async function launchWithArcPad(input: {
   });
   const hash = await input.wallet.writeContract(request);
   const receipt = await input.pub.waitForTransactionReceipt({ hash });
-  if (receipt.status !== "success") throw new Error("ArcPad launch reverted.");
-  return { hash, token: null, factory: ARCPAD_CURVE_PAD, router: null, pairTokens: [ARC_USDC], venue: "arcpad", launchFee: value.toString(), explorer: `https://www.arcexplorer.org/tx/${hash}` };
+  if (receipt.status !== "success") throw new Error("ArcPad launch reverted. No token was created.");
+  const events = parseEventLogs({ abi: ARCPAD_ABI, logs: receipt.logs, eventName: "TokenCreated" });
+  const token = events[0]?.args.token as Address | undefined;
+  if (!token) throw new Error("ArcPad launch confirmed, but the token address was not found in the confirmation event.");
+  return { hash, token, factory: ARCPAD_CURVE_PAD, router: null, pairTokens: [ARC_USDC], venue: "arcpad", launchFee: value.toString(), explorer: `https://www.arcexplorer.org/tx/${hash}` };
 }
 
 function chainFor(network: ParNetwork): Chain {

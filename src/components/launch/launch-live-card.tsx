@@ -6,7 +6,7 @@ import { CopyCa } from "@/components/story/copy-ca";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 
 export type LiveLaunch = {
-  venue: "pumpfun" | "uniswap-v4" | "pons";
+  venue: "pumpfun" | "uniswap-v4" | "pons" | "arcpad";
   name: string;
   symbol: string;
   blurb?: string;
@@ -27,6 +27,13 @@ function linksFor(live: LiveLaunch) {
       live.signature ? { href: `https://solscan.io/tx/${live.signature}`, label: "Launch tx" } : null,
     ].filter((item): item is { href: string; label: string } => Boolean(item));
   }
+  if (live.venue === "arcpad") {
+    return [
+      { href: `https://www.arcexplorer.org/address/${live.mint}`, label: "Arc Explorer" },
+      live.signature ? { href: `https://www.arcexplorer.org/tx/${live.signature}`, label: "Launch tx" } : null,
+      { href: `https://arcpad.meme/token/${live.mint}`, label: "ArcPad" },
+    ].filter((item): item is { href: string; label: string } => Boolean(item));
+  }
   if (live.venue === "pons") {
     return [
       { href: `https://explorer.robinhood.com/address/${live.mint}`, label: "Explorer" },
@@ -42,6 +49,7 @@ function linksFor(live: LiveLaunch) {
 function venueLine(venue: LiveLaunch["venue"]) {
   if (venue === "pumpfun") return "Live on pump.fun";
   if (venue === "pons") return "Live on Robinhood · Pons";
+  if (venue === "arcpad") return "Live on Arc · ArcPad";
   return "Live on Arc · Uniswap v4";
 }
 
