@@ -19,9 +19,9 @@ export type ParFeeMode = "creator" | "holders" | "burn" | "floor";
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 // Arc's native USDC predeploy. It is intentionally a valid 20-byte address with a 0x3600… suffix.
+// ArcPad primary launcher, documented live on Arc mainnet (chain 5042).
+const ARCPAD_CURVE_PAD = "0x24196cd6e534cfce8f480b53e70809b68ea86f29" as Address;
 const ARC_USDC = "0x3600000000000000000000000000000000000000" as Address;
-const ARC_MULTI_FACTORY = "0x920Ca489f8c9573645b8aB00dad60fc81c9487fd" as Address;
-const ARC_MULTI_ROUTER = "0x7cda46222a6B202f6B18A51b9a558Bc38a655083" as Address;
 const ARC_HOLDER_VAULT = "0x64D085E5269fdAFfc28363f21b208f8A2EfCcD0A" as Address;
 const ARC_BURN_VAULT = "0x4067820296a0C717c3e31B05E98505b3215c5544" as Address;
 const ARC_FLOOR_VAULT = "0x5567633b002f935181f0fEAa8953Bd0ad5610b0D" as Address;
@@ -58,6 +58,35 @@ export const PAR_MULTI_ROUTER_ABI = [
   { type: "function", name: "launchAndBuyWithReference", stateMutability: "payable", inputs: [tokenParams, { name: "launchConfigId", type: "uint256" }, { name: "pairTokens", type: "address[]" }, { name: "legs", type: "tuple[]" }, { name: "amountIn", type: "uint256" }, { name: "minTokensOut", type: "uint256" }], outputs: [{ name: "token", type: "address" }, { name: "tokensOut", type: "uint256" }] },
 ] as const;
 
+export const ARCPAD_ABI = [
+  { type: "function", name: "createToken", stateMutability: "payable", inputs: [
+    { name: "name", type: "string" }, { name: "symbol", type: "string" },
+    { name: "meta", type: "tuple", components: [
+      { name: "imageURI", type: "string" }, { name: "website", type: "string" },
+      { name: "twitter", type: "string" }, { name: "telegram", type: "string" },
+    ] }, { name: "salt", type: "bytes32" },
+  ], outputs: [] },
+] as const;
+
+export async function launchWithArcPad(input: {
+  name: string; symbol: string; logo?: string; description?: string;
+  twitter?: string; telegram?: string; website?: string; creator: Address;
+  wallet: WalletClient; pub: PublicClient; devBuy?: bigint;
+}) {
+  const salt = `0x${Buffer.from(`${input.creator}:${input.name}:${input.symbol}:${Date.now()}`).toString("hex").padEnd(64, "0").slice(0, 64)}` as `0x${string}`;
+  const value = input.devBuy ?? 0n;
+  const { request } = await input.pub.simulateContract({
+    address: ARCPAD_CURVE_PAD, abi: ARCPAD_ABI, functionName: "createToken",
+    args: [input.name.slice(0, 64), input.symbol.toUpperCase().slice(0, 16), {
+      imageURI: input.logo || "", website: input.website || "", twitter: input.twitter || "", telegram: input.telegram || "",
+    }, salt], account: input.wallet.account, value, gas: 3_000_000n,
+  });
+  const hash = await input.wallet.writeContract(request);
+  const receipt = await input.pub.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error("ArcPad launch reverted.");
+  return { hash, token: null, factory: ARCPAD_CURVE_PAD, router: null, pairTokens: [ARC_USDC], venue: "arcpad", launchFee: value.toString(), explorer: `https://www.arcexplorer.org/tx/${hash}` };
+}
+
 function chainFor(network: ParNetwork): Chain {
   if (network === "robinhood") return {
     id: RH.chainId, name: RH.name, nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
@@ -74,7 +103,7 @@ function chainFor(network: ParNetwork): Chain {
 export function parAddresses(network: ParNetwork) {
   if (network === "robinhood") return { factory: RH_MULTI_FACTORY, router: RH_MULTI_ROUTER, defaultPairToken: ZERO, feeRecipients: {} as Record<ParFeeMode, Address> };
   return {
-    factory: ARC_MULTI_FACTORY, router: ARC_MULTI_ROUTER, defaultPairToken: ARC_USDC,
+    factory: ARCPAD_CURVE_PAD, router: ZERO, defaultPairToken: ARC_USDC,
     feeRecipients: { creator: ZERO, holders: ARC_HOLDER_VAULT, burn: ARC_BURN_VAULT, floor: ARC_FLOOR_VAULT } satisfies Record<ParFeeMode, Address>,
   };
 }

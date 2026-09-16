@@ -66,9 +66,9 @@ export function ArcLaunchStudio({ handle, pairCard = false }: { handle: string |
   return (
     <form onSubmit={(event) => void launch(event)} className="space-y-5">
       <section className="glass space-y-4 rounded-2xl border border-arc/20 p-4">
-        <div><p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-arc">Arc mainnet · Par</p>
+        <div><p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-arc">Arc mainnet · ArcPad</p>
           <h2 className="mt-1 text-2xl font-semibold">Instant multi-market launch</h2>
-          <p className="mt-2 text-sm text-parchment/65">A plain Uniswap v4 pool opens immediately on Arc 5042. No bonding curve phase or migration. Choose one to five quote assets; every market is seeded and locked in the same transaction.</p>
+          <p className="mt-2 text-sm text-parchment/65">A fixed-supply token opens immediately on Arc 5042 through ArcPad, with an Arc USDC pool and locked liquidity.</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Name</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} required /></div>
           <div className="space-y-2"><Label>Ticker</Label><Input value={ticker} maxLength={10} onChange={(e) => setTicker(e.target.value.toUpperCase())} required /></div></div>
@@ -76,16 +76,16 @@ export function ArcLaunchStudio({ handle, pairCard = false }: { handle: string |
         <CoverField value={cover} onChange={setCover} />
       </section>
       <section className="glass space-y-4 rounded-2xl border border-arc/20 p-4">
-        <div><p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-arc">Markets</p><p className="text-sm text-parchment/65">USDC is the Arc reference asset. Other assets are accepted when Par’s on-chain pricer can value them through qualifying Uniswap liquidity.</p></div>
+        <div><p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-arc">Markets</p><p className="text-sm text-parchment/65">ArcPad launches against Arc’s native USDC gas/quote asset.</p></div>
         {quotes.map((quote, index) => <div className="flex gap-2" key={`${index}-${quote}`}><Input aria-label={`Quote asset ${index + 1}`} value={quote} onChange={(e) => updateQuote(index, e.target.value)} placeholder={USDC} required />{quotes.length > 1 ? <Button type="button" variant="outline" onClick={() => removeQuote(index)}>Remove</Button> : null}</div>)}
-        <div className="flex items-center justify-between"><span className="text-xs text-parchment/55">{quotes.length}/5 markets · no duplicates · no native address on Arc</span><Button type="button" variant="outline" onClick={addQuote} disabled={quotes.length >= 5}>Add market</Button></div>
+        <div className="flex items-center justify-between"><span className="text-xs text-parchment/55">ArcPad · native USDC quote · one launch pool</span><Button type="button" variant="outline" onClick={addQuote} disabled={quotes.length >= 5}>Add market</Button></div>
       </section>
       <section className="glass space-y-4 rounded-2xl border border-arc/20 p-4">
         <div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-arc">Fee policy</p><p className="text-sm text-parchment/65">The choice is frozen into the launch’s fee recipient. It cannot be silently changed after creation.</p></div>
         <div className="grid gap-2 sm:grid-cols-2">{FEE_MODES.map((mode) => <button type="button" key={mode.id} onClick={() => setFeeMode(mode.id)} className={cn("rounded-xl border p-3 text-left", feeMode === mode.id ? "border-arc bg-arc/15" : "border-white/10 bg-white/5")}><p className="font-semibold">{mode.title}</p><p className="mt-1 text-xs text-parchment/60">{mode.body}</p></button>)}</div>
         <div className="space-y-2"><Label>Creator tax: {(creatorTaxBps / 100).toFixed(2)}% (0–10%)</Label><input className="w-full accent-[#00e5c3]" type="range" min={0} max={1000} value={creatorTaxBps} onChange={(e) => setCreatorTaxBps(Number(e.target.value))} /></div>
       </section>
-      <section className="glass space-y-4 rounded-2xl border border-arc/20 p-4"><p className="text-sm text-parchment/70">Your Arc wallet signs the launch and pays the 0.0005 USDC protocol launch fee plus gas. All selected pools open together; liquidity is locked by Par’s multi-market locker.</p>
+      <section className="glass space-y-4 rounded-2xl border border-arc/20 p-4"><p className="text-sm text-parchment/70">Your Arc wallet signs the launch and pays Arc USDC for gas. ArcPad creates the token and locks the initial liquidity in the same transaction.</p>
         <label className="flex items-start gap-3 text-sm"><Switch checked={rights} onCheckedChange={setRights} /><span>I have the rights to use this token name and artwork.</span></label>
         <Button type="submit" disabled={!rights || busy || !title || !ticker}>{busy ? status ?? "Launching…" : "Launch on Arc mainnet"}</Button>
         {error ? <Alert variant="destructive"><AlertTitle>Launch blocked</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
