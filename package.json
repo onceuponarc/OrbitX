@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node scripts/arc-devnet.mjs",
     "dev": "next dev --hostname 127.0.0.1 --port 43147",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 43147",
@@ -21,7 +20,6 @@
     "check:mint-tx": "node scripts/check-mint-tx.mjs",
     "check:read-json": "node --experimental-strip-types --no-warnings scripts/check-read-json.ts",
     "test:forge": "forge test --root contracts -vv",
-    "arc:devnet": "node scripts/arc-devnet.mjs",
     "arc:watch": "node scripts/arc-watchdog.mjs",
     "sql:apply": "node scripts/apply-sql.mjs"
   },
@@ -49,6 +47,7 @@
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
     "shadcn": "^4.21.0",
+    "tailwindcss": "^4",
     "tw-animate-css": "^1.4.0",
     "tweetnacl": "^1.0.3",
     "viem": "^2.56.5"
@@ -62,7 +61,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "pg": "^8.23.0",
-    "tailwindcss": "^4",
     "typescript": "^5"
   },
   "packageManager": "pnpm@10.33.3"
