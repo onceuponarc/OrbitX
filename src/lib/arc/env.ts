@@ -59,7 +59,9 @@ export function loadArcNetwork(): ArcNetworkFile | null {
     const net = main ? ARC_MAINNET : ARC_TESTNET;
     return {
       label: net.name,
-      rpcUrl: process.env.ARC_RPC_URL || net.rpcUrls[0],
+      rpcUrl: process.env.ARC_RPC_URL && !process.env.ARC_RPC_URL.includes("rpc.arc-scan.org")
+        ? process.env.ARC_RPC_URL
+        : net.rpcUrls[0],
       chainId: net.chainId,
       factory: (process.env.ARC_FACTORY as `0x${string}` | undefined) || TESTNET_FACTORY,
       usdc: (process.env.ARC_USDC as `0x${string}` | undefined) || net.usdcErc20,

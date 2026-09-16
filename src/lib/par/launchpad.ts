@@ -3,6 +3,7 @@ import "server-only";
 import {
   createPublicClient,
   createWalletClient,
+  fallback,
   http,
   type Address,
   type Chain,
@@ -17,6 +18,7 @@ export type ParNetwork = "arc" | "robinhood";
 export type ParFeeMode = "creator" | "holders" | "burn" | "floor";
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
+// Arc's native USDC predeploy. It is intentionally a valid 20-byte address with a 0x3600… suffix.
 const ARC_USDC = "0x3600000000000000000000000000000000000000" as Address;
 const ARC_MULTI_FACTORY = "0x920Ca489f8c9573645b8aB00dad60fc81c9487fd" as Address;
 const ARC_MULTI_ROUTER = "0x7cda46222a6B202f6B18A51b9a558Bc38a655083" as Address;
@@ -64,7 +66,7 @@ function chainFor(network: ParNetwork): Chain {
   if (process.env.ARC_CHAIN_ID && process.env.ARC_CHAIN_ID !== "5042") throw new Error("Par Arc launch is mainnet-only (chain 5042).");
   return {
     id: 5042, name: "Arc", nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-    rpcUrls: { default: { http: [process.env.ARC_RPC_URL || "https://rpc.mainnet.arc.io"] } },
+    rpcUrls: { default: { http: ["https://rpc.mainnet.arc.io", "https://rpc.arc-scan.org", "https://arc-mainnet.infura.io/v3/b6bf7d3508c941499b10025c0776eaf8"] } },
     blockExplorers: { default: { name: "Arc Explorer", url: "https://www.arcexplorer.org" } },
   };
 }
@@ -102,6 +104,15 @@ export async function launchWithPar(input: {
   const recipient = mode === "creator" ? input.creator : addresses.feeRecipients[mode];
   if (!recipient) throw new Error(`Fee mode ${mode} is not configured for ${input.network}.`);
   const launchFee = await pub.readContract({ address: addresses.factory, abi: PAR_MULTI_FACTORY_ABI, functionName: "launchFee" });
+  // Arc uses native USDC for both gas and payable protocol fees. Fail before
+  // simulateContract when the desk wallet cannot cover the required value;
+  // otherwise the RPC only reports the opaque OutOfFunds error.
+  const signerAddress = wallet.account?.address;
+  if (!signerAddress) throw new Error("Arc launch signer is unavailable.");
+  const nativeBalance = await pub.getBalance({ address: signerAddress });
+  if (nativeBalance < launchFee) {
+    throw new Error(`Insufficient Arc USDC balance: launch requires ${launchFee.toString()} base units plus gas, but the launch wallet has ${nativeBalance.toString()}. Fund the signing wallet, then retry.`);
+  }
   // Pool-priced quote assets can move between preview and inclusion. Par requires
   // a zero digest for those; only the fixed Arc USDC reference is pinned here.
   const expectedEconomics = pairTokens.every((token) => token.toLowerCase() === ARC_USDC.toLowerCase())
