@@ -70,11 +70,9 @@ export function filterFeed(launches: FeedLaunch[], tab: FeedTab): FeedLaunch[] {
 }
 
 const ANVIL_QUOTE = "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707";
-// Seeded/test launches that must not appear in the public launchpad feed.
-const HIDDEN_LAUNCH_SLUGS = new Set([
-  "volt-hrrb",
-  "rune-kuou",
-  "edge-u7iw",
+// Only these already-launched Solana test tokens are hidden from the public feed.
+// New launches are not affected.
+const HIDDEN_TEST_LAUNCH_SLUGS = new Set([
   "elon-musk-zrgf",
   "paid-s9ty",
   "trollpepe-zn4y",
@@ -86,7 +84,7 @@ export function isAnvilLaunch(item: {
   tokenAddress?: string | null;
 }): boolean {
   const slug = (item.slug ?? "").toLowerCase();
-  if (HIDDEN_LAUNCH_SLUGS.has(slug)) return true;
+  if (HIDDEN_TEST_LAUNCH_SLUGS.has(slug)) return true;
   const quote = (item.quoteAddress ?? "").toLowerCase();
   return quote === ANVIL_QUOTE;
 }
