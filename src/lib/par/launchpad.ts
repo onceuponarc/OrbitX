@@ -10,15 +10,16 @@ import {
   type WalletClient,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { ARC_MAINNET, ARC_TESTNET } from "@onceupon/config/arc";
+import { ARC_MAINNET } from "@onceupon/config/arc";
+import { ARC_V4 } from "@onceupon/config/ubi-v4";
 import { RH } from "@onceupon/config/rh";
 
 export type ParNetwork = "arc" | "robinhood";
 
-const ARC_MULTI_FACTORY_TESTNET = "0x920Ca489f8c9573645b8aB00dad60fc81c9487fd" as Address;
-const ARC_MULTI_ROUTER_TESTNET = "0x7cda46222a6B202f6B18A51b9a558Bc38a655083" as Address;
 const RH_MULTI_FACTORY = "0x3ea29975a79900179F3e1aEF93347Ba4210c29C1" as Address;
 const RH_MULTI_ROUTER = "0x458D2a59c2F3dd32775a64eE72004561440d64Df" as Address;
+const ARC_MULTI_FACTORY_MAINNET = ARC_V4.flaunchZap as Address;
+const ARC_MULTI_ROUTER_MAINNET = ARC_V4.flaunch as Address;
 
 const tokenParams = {
   type: "tuple",
@@ -79,13 +80,15 @@ function chainFor(network: ParNetwork): Chain {
       blockExplorers: { default: { name: "Blockscout", url: RH.explorer } },
     };
   }
-  const n = process.env.ARC_CHAIN_ID === String(ARC_MAINNET.chainId) ? ARC_MAINNET : ARC_TESTNET;
+  if (process.env.ARC_CHAIN_ID !== String(ARC_MAINNET.chainId)) {
+    throw new Error("Par Arc mainnet is not configured. Refusing to launch on Arc testnet.");
+  }
   return {
-    id: n.chainId,
-    name: n.name,
+    id: ARC_MAINNET.chainId,
+    name: ARC_MAINNET.name,
     nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-    rpcUrls: { default: { http: [process.env.ARC_RPC_URL || n.rpcUrls[0]] } },
-    blockExplorers: { default: { name: "Arcscan", url: n.explorer } },
+    rpcUrls: { default: { http: [process.env.ARC_RPC_URL || ARC_MAINNET.rpcUrls[0]] } },
+    blockExplorers: { default: { name: "Arcscan", url: ARC_MAINNET.explorer } },
   };
 }
 
@@ -94,9 +97,9 @@ export function parAddresses(network: ParNetwork) {
   // is the correct pair token there. Arc uses the USDC ERC-20 reference.
   if (network === "robinhood") return { factory: RH_MULTI_FACTORY, router: RH_MULTI_ROUTER, pairToken: "0x0000000000000000000000000000000000000000" as Address };
   return {
-    factory: (process.env.PAR_ARC_MULTI_FACTORY || ARC_MULTI_FACTORY_TESTNET) as Address,
-    router: (process.env.PAR_ARC_MULTI_ROUTER || ARC_MULTI_ROUTER_TESTNET) as Address,
-    pairToken: (process.env.PAR_ARC_USDC || ARC_TESTNET.usdcErc20) as Address,
+    factory: (process.env.PAR_ARC_MULTI_FACTORY || ARC_MULTI_FACTORY_MAINNET) as Address,
+    router: (process.env.PAR_ARC_MULTI_ROUTER || ARC_MULTI_ROUTER_MAINNET) as Address,
+    pairToken: (process.env.PAR_ARC_USDC || ARC_MAINNET.usdcErc20) as Address,
   };
 }
 

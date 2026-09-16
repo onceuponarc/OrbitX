@@ -10,6 +10,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 import { PAD_NAME } from "@onceupon/config/launchpad";
 
+const ORBITX_BRAND_LOGO = `${PUBLIC_SITE_URL}/brand/logo.jpg`;
+const ORBITX_BRAND_X = "https://x.com/orbitx_wrld";
+const ORBITX_BRAND_TELEGRAM = "https://t.me/orbitx_wrld";
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
@@ -94,8 +98,8 @@ export async function POST(request: Request) {
         title: name,
         ticker: symbol,
         blurb,
-        cover_url: body.coverUrl ?? null,
-        image_uri: body.coverUrl ?? null,
+        cover_url: body.coverUrl || ORBITX_BRAND_LOGO,
+        image_uri: body.coverUrl || ORBITX_BRAND_LOGO,
         website_url: websiteUrl,
         twitter_url: twitterUrl,
         telegram_url: telegramUrl,
@@ -156,9 +160,15 @@ export async function POST(request: Request) {
         name,
         symbol,
         description: blurb || `${name} launched on ${PAD_NAME}.`,
-        image: body.coverUrl,
+        image: body.coverUrl || ORBITX_BRAND_LOGO,
         createdOn: PUBLIC_SITE_URL,
         launchpad: PAD_NAME,
+        brand: "OrbitX",
+        brandName: "OrbitX",
+        brandUrl: PUBLIC_SITE_URL,
+        brandLogo: ORBITX_BRAND_LOGO,
+        officialX: ORBITX_BRAND_X,
+        officialTelegram: ORBITX_BRAND_TELEGRAM,
         creatorX: profile?.handle ? `@${profile.handle}` : "",
         website: websiteUrl ?? undefined,
         twitter: twitterUrl ?? undefined,

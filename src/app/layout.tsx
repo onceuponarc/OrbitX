@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import type { Metadata, Viewport } from "next";
+import type { ReactNode } from "react";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 import "./globals.css";
@@ -53,7 +54,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} dark h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-black text-parchment">
