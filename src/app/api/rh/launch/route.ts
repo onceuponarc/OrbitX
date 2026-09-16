@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { keccak256, toHex, zeroAddress, zeroHash } from "viem";
 import { getSessionUser } from "@/lib/auth";
+import { launchWithPar } from "@/lib/par/launchpad";
 import { deskRhWallet } from "@/lib/wallets/rh-client";
-import { PONS_FACTORY, PONS_FACTORY_ABI } from "@/lib/rh/pons";
 import { RH } from "@onceupon/config/rh";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -20,11 +19,7 @@ function normalizeUrl(raw: string | undefined, kind: "website" | "twitter" | "te
 }
 
 function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 48);
+  return input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
 }
 
 export async function POST(request: Request) {
@@ -32,123 +27,51 @@ export async function POST(request: Request) {
     const { user, profile } = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Sign in with X first." }, { status: 401 });
     const body = (await request.json()) as {
-      name?: string;
-      symbol?: string;
-      coverUrl?: string;
-      description?: string;
-      website?: string;
-      twitter?: string;
-      telegram?: string;
+      name?: string; symbol?: string; coverUrl?: string; description?: string;
+      website?: string; twitter?: string; telegram?: string;
     };
     const name = (body.name ?? "").trim().slice(0, 32);
     const symbol = (body.symbol ?? "").trim().toUpperCase().slice(0, 12);
     if (!name || !symbol) return NextResponse.json({ error: "Name and ticker required." }, { status: 400 });
 
-    const { wallet, pub, address } = await deskRhWallet(user.id);
-    const balance = await pub.getBalance({ address });
-    const fee = await pub.readContract({
-      address: PONS_FACTORY,
-      abi: PONS_FACTORY_ABI,
-      functionName: "launchFee",
-    });
-    if (balance < fee) {
-      return NextResponse.json(
-        {
-          error: `Fund your in-app Robinhood wallet. Need ETH at ${address} for the Pons launch fee + gas.`,
-        },
-        { status: 400 },
-      );
-    }
-
-    const description = (body.description ?? "").trim() || "Launched on OrbitX";
-    const twitterFallback = profile?.handle ? `https://x.com/${profile.handle}` : "";
-    const twitter = normalizeUrl(body.twitter, "twitter", twitterFallback);
+    const { address, wallet, pub } = await deskRhWallet(user.id);
+    const twitter = normalizeUrl(body.twitter, "twitter", profile?.handle ? `https://x.com/${profile.handle}` : "");
     const website = normalizeUrl(body.website, "website", PUBLIC_SITE_URL);
     const telegram = normalizeUrl(body.telegram, "telegram");
-
-    const salt = keccak256(toHex(`${address}:${name}:${symbol}:${Date.now()}`));
-    const args = [
-      {
-        name,
-        symbol,
-        logo: body.coverUrl ?? "",
-        description,
-        socials: {
-          twitter,
-          telegram,
-          discord: "",
-          website,
-          farcaster: "",
-        },
-        creatorFeeRecipient: address,
-        creatorTaxBps: 100,
-        buybackEnabled: false,
-        expectedEconomics: zeroHash,
-        salt,
-      },
-      0n,
-      zeroAddress,
-    ] as const;
-
-    // Simulate first so we get the deterministic (token, curve) addresses launchToken()
-    // returns — sendTransaction alone only ever gives back a tx hash, which is why the
-    // studio's success check (it requires body.token) was always failing before, even
-    // when the on-chain launch itself succeeded.
-    const { result, request: simulated } = await pub.simulateContract({
-      address: PONS_FACTORY,
-      abi: PONS_FACTORY_ABI,
-      functionName: "launchToken",
-      args,
-      account: wallet.account,
-      value: fee,
+    const result = await launchWithPar({
+      network: "robinhood",
+      name,
+      symbol,
+      logo: body.coverUrl ?? "",
+      description: (body.description ?? "").trim() || "Launched on OrbitX",
+      twitter,
+      website,
+      telegram,
+      creator: address,
+      creatorTaxBps: 100,
+      wallet,
+      pub,
     });
-    const [tokenAddress, curveAddress] = result;
-
-    const hash = await wallet.writeContract(simulated);
 
     const slug = `${slugify(name) || slugify(symbol) || "token"}-${Math.random().toString(36).slice(2, 6)}`;
-
     try {
       const supabase = createServiceClient();
       await supabase.from("stories").insert({
-        slug,
-        title: name,
-        ticker: symbol,
-        blurb: description,
-        cover_url: body.coverUrl ?? null,
-        image_uri: body.coverUrl ?? null,
-        website_url: website || null,
-        twitter_url: twitter || null,
-        telegram_url: telegram || null,
-        author_user_id: user.id,
-        author_wallet: address,
-        engine: "author",
-        status: "live",
-        author_bps: 100,
-        chain: "robinhood",
-        venue: "pons",
-        pair_class: "other",
-        pair_label: "WETH",
-        mint_decimals: 18,
-        token_address: tokenAddress,
-        vault_address: curveAddress,
-        created_tx: hash,
+        slug, title: name, ticker: symbol, blurb: body.description ?? "Launched on OrbitX",
+        cover_url: body.coverUrl ?? null, image_uri: body.coverUrl ?? null,
+        website_url: website || null, twitter_url: twitter || null, telegram_url: telegram || null,
+        author_user_id: user.id, author_wallet: address, engine: "author", status: "live",
+        author_bps: 100, chain: "robinhood", venue: "par", pair_class: "other", pair_label: "ETH",
+        mint_decimals: 18, token_address: result.token, created_tx: result.hash,
       });
     } catch (error) {
-      // Don't block a successful on-chain launch on a DB write failure, but do log it.
-      console.error("rh launch: stories insert failed", error);
+      console.error("RH Par launch: stories insert failed", error);
     }
 
     return NextResponse.json({
-      hash,
-      token: tokenAddress,
-      slug,
-      curve: curveAddress,
-      creator: address,
-      feeRecipient: address,
-      explorer: `${RH.explorer}/tx/${hash}`,
-      venue: "pons-v2",
-      note: "Pons v2 curve. Buy and sell from block one. Volume feeds the curve and graduates into a locked Uniswap v4 LP.",
+      ...result, slug, creator: address, feeRecipient: address,
+      explorer: `${RH.explorer}/tx/${result.hash}`, venue: "par-multi",
+      note: "PairPad multi-market launch on Robinhood Chain.",
     });
   } catch (error) {
     return NextResponse.json(

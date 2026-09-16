@@ -43,6 +43,18 @@ export const erc20Abi = [
     ],
     outputs: [],
   },
+  // Added for OrbitX revenue collection on Arc: the fee is an ERC-20 transfer of
+  // the quote asset (USDC) to the Arc revenue wallet.
+  {
+    type: "function",
+    name: "transfer",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ type: "bool" }],
+  },
 ] as const;
 
 export const factoryAbi = [

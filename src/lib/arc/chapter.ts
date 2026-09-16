@@ -14,6 +14,8 @@ import {
   type LocalArcStory,
 } from "@/lib/arc/store";
 import { listPersistedArcStories, loadArcStory, persistArcStory, persistArcTrade } from "@/lib/arc/persist";
+import { arcTradeFee, collectArcTradeFee } from "@/lib/arc/orbitx-fee";
+import { recordArcRevenueEvent } from "@/lib/arc/revenue";
 
 const ANVIL_QUOTE = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707".toLowerCase();
 
@@ -376,8 +378,17 @@ export async function tradeOnArc(slug: string, side: "buy" | "sell", amountUi: n
   let quoteUi: number;
   let tokensUi: number;
 
+  let fee = arcTradeFee({
+    side,
+    grossInRaw: side === "buy" ? parseUnits(String(amountUi), 6) : 0n,
+    minQuoteOutRaw: 0n,
+  });
+
   if (side === "buy") {
-    amountIn = parseUnits(String(amountUi), 6);
+    const grossIn = parseUnits(String(amountUi), 6);
+    // The user enters gross USDC. Only net USDC reaches the curve; the fee is
+    // collected from the same wallet after the confirmed trade.
+    amountIn = fee.netInRaw;
     await ensureAllowance(story.quoteAddress, owner, story.curveAddress, amountIn);
     const quoted = await pub.readContract({
       address: story.curveAddress,
@@ -393,7 +404,7 @@ export async function tradeOnArc(slug: string, side: "buy" | "sell", amountUi: n
       functionName: "buy",
       args: [amountIn, minOut],
     });
-    quoteUi = amountUi;
+    quoteUi = Number(formatUnits(grossIn, 6));
     tokensUi = Number(formatUnits(amountOut, 18));
   } else {
     amountIn = parseUnits(String(amountUi), 18);
@@ -416,7 +427,32 @@ export async function tradeOnArc(slug: string, side: "buy" | "sell", amountUi: n
     tokensUi = amountUi;
   }
 
-  await pub.waitForTransactionReceipt({ hash });
+  // The curve trade is confirmed before OrbitX collects its Arc USDC fee.
+  // Arc's current curve API cannot bundle the revenue transfer atomically;
+  // this ordering makes it impossible to charge a fee for a reverted trade.
+  const tradeReceipt = await pub.waitForTransactionReceipt({ hash });
+  if (tradeReceipt.status !== "success") throw new Error("Arc trade reverted.");
+  fee = side === "buy"
+    ? fee
+    : arcTradeFee({
+        side,
+        grossInRaw: 0n,
+        minQuoteOutRaw: (amountOut * 95n) / 100n,
+      });
+  const collected = await collectArcTradeFee({ net, feeRaw: fee.feeRaw, tradeTxHash: hash });
+  await recordArcRevenueEvent({
+    kind: "trade",
+    feeTxHash: collected.feeTxHash,
+    tradeTxHash: hash,
+    payer: owner,
+    feeMint: net.usdc,
+    feeAmountRaw: fee.feeRaw,
+    feeBps: fee.feeBps,
+    side,
+    tokenAddress: story.tokenAddress,
+    verified: collected.verified,
+    collectionError: collected.error,
+  });
   const snap = await pub.readContract({
     address: story.curveAddress,
     abi: curveAbi,

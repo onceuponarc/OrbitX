@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { launchOnArc } from "@/lib/arc/chapter";
+import { launchWithPar } from "@/lib/par/launchpad";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,17 +26,20 @@ export async function POST(request: Request) {
     if (!body.rightsAttested) {
       return NextResponse.json({ error: "Attest you have the rights to the art and name." }, { status: 400 });
     }
-    const result = await launchOnArc({
-      title: body.title,
-      ticker: body.ticker,
-      blurb: body.blurb ?? "",
-      engine: body.engine === "onceuponers" ? "onceuponers" : "author",
-      authorBps: Number(body.authorBps ?? 100),
-      graduateUi: Number(body.graduateUi ?? 5000),
-      handle: profile?.handle ?? "devnet",
-      coverUrl: body.coverUrl ?? null,
-      userId: profile?.id ?? null,
-      creator: body.creator?.startsWith("0x") ? (body.creator as `0x${string}`) : undefined,
+    const creator = body.creator?.startsWith("0x")
+      ? (body.creator as `0x${string}`)
+      : undefined;
+    if (!creator) {
+      return NextResponse.json({ error: "Connect an EVM creator wallet for Par launches." }, { status: 400 });
+    }
+    const result = await launchWithPar({
+      network: "arc",
+      name: body.title,
+      symbol: body.ticker,
+      description: body.blurb ?? "",
+      logo: body.coverUrl ?? "",
+      twitter: profile?.handle ? `https://x.com/${profile.handle}` : "",
+      creator,
     });
     return NextResponse.json(result);
   } catch (error) {
