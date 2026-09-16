@@ -93,8 +93,10 @@ function hasValidTokenAddress(chain: string, mint: string): boolean {
 }
 
 export function isListedLaunch(item: FeedLaunch & { quoteAddress?: string | null }): boolean {
+  // Never surface the already-created local/test coins on the public launchpad,
+  // regardless of which chain or quote metadata was persisted for them.
+  if (isAnvilLaunch(item)) return false;
   const chain = item.chain ?? "arc";
-  if (chain === "arc" && isAnvilLaunch(item)) return false;
   const mint = item.tokenAddress ?? "";
   if (!hasValidTokenAddress(chain, mint)) return false;
   const ticker = item.ticker.trim().toUpperCase();
