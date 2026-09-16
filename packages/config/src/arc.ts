@@ -70,6 +70,7 @@ export const ARC_MAINNET = {
   usdcErc20: "0x3600000000000000000000000000000000000000" as const,
   usdcErc20Decimals: 6,
   rpcUrls: [
+    "https://rpc.mainnet.arc.io",
     "https://rpc.arc-scan.org",
     "https://arc-mainnet.infura.io/v3/b6bf7d3508c941499b10025c0776eaf8",
   ],
