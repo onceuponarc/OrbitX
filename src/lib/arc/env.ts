@@ -35,8 +35,7 @@ export function loadArcNetwork(): ArcNetworkFile | null {
   if (process.env.ARC_FACTORY && process.env.ARC_USDC) {
     const chainId = Number(process.env.ARC_CHAIN_ID || 31337);
     return {
-      label:
-        "Arc",
+      label: "Arc",
       rpcUrl:
         process.env.ARC_RPC_URL ||
         (chainId === ARC_MAINNET.chainId
@@ -107,7 +106,8 @@ export function traderPrivateKey(): `0x${string}` {
   if (onPublicArc() && !fromEnv) {
     throw new Error("Public Arc signer is not configured. Set ARC_DEV_PRIVATE_KEY or ARC_TRADER_PRIVATE_KEY.");
   }
-  return fromEnv || ANVIL_TRADER.privateKey;
+  if (!fromEnv) throw new Error("Arc signer is not configured.");
+  return fromEnv;
 }
 
 export function deployerPrivateKey(): `0x${string}` {
@@ -115,7 +115,8 @@ export function deployerPrivateKey(): `0x${string}` {
   if (onPublicArc() && !fromEnv) {
     throw new Error("Public Arc deployer signer is not configured. Set ARC_DEPLOYER_PRIVATE_KEY.");
   }
-  return fromEnv || ANVIL_DEPLOYER.privateKey;
+  if (!fromEnv) throw new Error("Arc deployer signer is not configured.");
+  return fromEnv;
 }
 
 export function padSignerAddress(): `0x${string}` {
@@ -123,7 +124,7 @@ export function padSignerAddress(): `0x${string}` {
     const key = traderPrivateKey();
     return privateKeyAddress(key);
   }
-  return ANVIL_TRADER.address;
+  throw new Error("Arc signer is not configured.");
 }
 
 export function assertUnblockedSigner(address: string) {

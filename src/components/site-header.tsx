@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignInButton } from "@/components/sign-in-button";
-import { NetworkChip } from "@/components/arc/devnet-wallet";
+import { NetworkChip } from "@/components/arc/network-chip";
 import { BrandMark } from "@/components/brand-mark";
 import { LiveTape } from "@/components/pad/live-tape";
 import { ChainStatusBanner } from "@/components/pad/chain-status-banner";
@@ -73,7 +73,7 @@ export function SiteHeader({
               key={item.href}
               href={item.href}
               className={cn(
-                "rounded-full px-2.5 py-1.5 text-sm transition-colors",
+                "rounded-full px-2.5 py-1.5 text-sm",
                 active(pathname, item.href) ? "text-white" : "text-white/40 hover:text-white",
               )}
             >
