@@ -7,7 +7,15 @@ import { readApiJson } from "@/lib/http/read-json";
 import { cn } from "@/lib/utils";
 
 type Quote = {
-  inAmountUi: number;
+  side: "buy" | "sell";
+  /** Fee is always denominated in the quote asset, never the token. */
+  feeMint: string;
+  feeBps: number;
+  grossInUi: number;
+  /** Exactly what the backend will collect — same math, same source. */
+  orbitxFeeUi: number;
+  netSwapInUi?: number;
+  grossOutUi?: number;
   outAmountUi: number;
   minReceivedUi: number;
   priceImpactPct: number;
@@ -30,7 +38,12 @@ export function TradePanel({
   const [quoting, setQuoting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ signature: string; explorer: string; outAmountUi: number } | null>(null);
+  const [result, setResult] = useState<{
+    signature: string;
+    explorer: string;
+    outAmountUi: number;
+    orbitxFeeUi: number;
+  } | null>(null);
 
   useEffect(() => {
     const value = Number(amount);
@@ -79,9 +92,20 @@ export function TradePanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tokenMint, quoteAsset, side, amount: Number(amount) }),
       });
-      const body = await readApiJson<{ error?: string; signature?: string; explorer?: string; outAmountUi?: number }>(res);
+      const body = await readApiJson<{
+        error?: string;
+        signature?: string;
+        explorer?: string;
+        outAmountUi?: number;
+        orbitxFeeUi?: number;
+      }>(res);
       if (!res.ok || !body.signature) throw new Error(body.error ?? "Trade failed.");
-      setResult({ signature: body.signature, explorer: body.explorer ?? "", outAmountUi: body.outAmountUi ?? 0 });
+      setResult({
+        signature: body.signature,
+        explorer: body.explorer ?? "",
+        outAmountUi: body.outAmountUi ?? 0,
+        orbitxFeeUi: body.orbitxFeeUi ?? 0,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Trade failed.");
     } finally {
@@ -156,6 +180,15 @@ export function TradePanel({
               <span className="text-white/40">Min received</span>
               <span className="tabular-nums text-white/70">
                 {quote.minReceivedUi.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-white/40">
+                OrbitX fee ({(quote.feeBps / 100).toFixed(2)}%)
+              </span>
+              <span className="tabular-nums text-white/70">
+                {quote.orbitxFeeUi.toLocaleString(undefined, { maximumFractionDigits: 9 })}{" "}
+                {quoteLabel}
               </span>
             </div>
             <div className="flex justify-between">

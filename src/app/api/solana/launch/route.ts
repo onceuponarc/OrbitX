@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { Keypair } from "@solana/web3.js";
 import { getSessionUser } from "@/lib/auth";
-import { generateVanityMint, VANITY_SUFFIX } from "@/lib/solana/vanity";
+import { resolveLaunchMint, VanityTimeoutError, VANITY_SUFFIX } from "@/lib/solana/vanity";
 import { buildCreateV2Tx, parseQuoteMintChoice, type PoolPairChoice } from "@/lib/solana/pump-sdk";
 import { sendSignedTx, waitForTx, explorerFromSig } from "@/lib/solana/partial-tx";
 import { fetchLatestBlockhash } from "@/lib/solana/blockhash";
@@ -68,10 +67,9 @@ export async function POST(request: Request) {
     const requestedFeeBps = Math.max(0, Math.min(300, Math.round(Number(body.creatorFeeBps ?? 0))));
 
     const payer = await deskSolanaKey(user.id);
-    const minted =
-      body.vanity === false
-        ? { keypair: Keypair.generate(), tries: 1, vanity: false }
-        : generateVanityMint(VANITY_SUFFIX);
+    // Throws VanityTimeoutError if a vanity mint was requested and not found.
+    // Nothing has been sent on-chain at this point, so that is a clean retry.
+    const minted = await resolveLaunchMint(body.vanity !== false);
     const mintAddress = minted.keypair.publicKey.toBase58();
     const metadataUri =
       body.metadataUri || `${PUBLIC_SITE_URL}/api/token/${mintAddress}/metadata`;
@@ -168,6 +166,21 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    // A vanity timeout happens before anything is sent on-chain and before the
+    // stories row is written, so it is a clean retry rather than a failed launch.
+    // Returned as 503 + retryable so the client can offer "try again" instead of
+    // silently producing a non-vanity token, which is what used to happen.
+    if (error instanceof VanityTimeoutError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          retryable: true,
+          suffix: error.suffix,
+          tries: error.tries,
+        },
+        { status: 503 },
+      );
+    }
     // If we already inserted a "live" stories row optimistically (so the metadata
     // endpoint would resolve before pump.fun's indexer asked for it) and the mint
     // transaction itself then failed on-chain, that row would otherwise sit on the

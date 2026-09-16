@@ -1,5 +1,4 @@
 import {
-  Keypair,
   PublicKey,
   SystemProgram,
   Transaction,
@@ -18,7 +17,7 @@ import {
 } from "@solana/spl-token";
 import { protocolKeypair } from "@/lib/solana/keys";
 import { solanaConnection } from "@/lib/solana/connection";
-import { generateVanityMint, VANITY_SUFFIX } from "@/lib/solana/vanity";
+import { resolveLaunchMint } from "@/lib/solana/vanity";
 
 export const DEFAULT_TAX_BPS = 100;
 export const MAX_TAX_BPS = 200;
@@ -35,7 +34,7 @@ export async function buildTaxMintTx(input: {
   const taxBps = Math.min(MAX_TAX_BPS, Math.max(25, Math.round(input.taxBps ?? DEFAULT_TAX_BPS)));
   const decimals = 6;
   const supply = BigInt(Math.max(1, Math.floor(input.supplyUi ?? 1_000_000_000))) * 10n ** BigInt(decimals);
-  const minted = input.vanity === false ? { keypair: Keypair.generate(), vanity: false, tries: 1 } : generateVanityMint(VANITY_SUFFIX);
+  const minted = await resolveLaunchMint(input.vanity !== false);
   const mint = minted.keypair.publicKey;
   const protocol = protocolKeypair().publicKey;
   const extensions = [ExtensionType.TransferFeeConfig];

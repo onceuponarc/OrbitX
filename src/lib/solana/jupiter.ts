@@ -54,4 +54,50 @@ export async function getJupiterSwapTx(quote: JupiterQuote, userPublicKey: strin
   return body.swapTransaction;
 }
 
+export type JupiterRawInstruction = {
+  programId: string;
+  accounts: { pubkey: string; isSigner: boolean; isWritable: boolean }[];
+  data: string;
+};
+
+export type JupiterSwapInstructions = {
+  tokenLedgerInstruction?: JupiterRawInstruction;
+  computeBudgetInstructions: JupiterRawInstruction[];
+  setupInstructions: JupiterRawInstruction[];
+  swapInstruction: JupiterRawInstruction;
+  cleanupInstruction?: JupiterRawInstruction;
+  addressLookupTableAddresses: string[];
+};
+
+/**
+ * Instruction-level variant of the swap build. Returns the individual
+ * instructions instead of a finished transaction so the caller can splice the
+ * OrbitX revenue-fee transfer into the SAME transaction as the swap — the fee
+ * must not be a separate transaction that can succeed while the trade fails.
+ */
+export async function getJupiterSwapInstructions(
+  quote: JupiterQuote,
+  userPublicKey: string,
+): Promise<JupiterSwapInstructions> {
+  const res = await fetch(`${BASE}/swap-instructions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      quoteResponse: quote,
+      userPublicKey,
+      wrapAndUnwrapSol: true,
+      dynamicComputeUnitLimit: true,
+      prioritizationFeeLamports: "auto",
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || "Jupiter couldn't build that swap right now.");
+  }
+  const body = (await res.json()) as JupiterSwapInstructions & { error?: string };
+  if (body.error) throw new Error(body.error);
+  if (!body.swapInstruction) throw new Error("Jupiter returned no swap instruction.");
+  return body;
+}
+
 export const WSOL_MINT = "So11111111111111111111111111111111111111112";
