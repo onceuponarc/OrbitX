@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseEventLogs, type Address, type PublicClient, type WalletClient } from "viem";
+import { formatUnits, parseEventLogs, type Address, type PublicClient, type WalletClient } from "viem";
 
 export const ARCPAD_CURVE_PAD = "0x24196cd6e534cfce8f480b53e70809b68ea86f29" as Address;
 export const ARC_USDC = "0x3600000000000000000000000000000000000000" as Address;
@@ -40,12 +40,26 @@ export async function launchWithArcPad(input: {
   const args = [input.name.slice(0, 64), input.symbol.toUpperCase().slice(0, 16), meta, salt] as const;
   let request;
   try {
+    const account = input.wallet.account;
+    if (!account) throw new Error("Arc wallet account is unavailable.");
+    const balance = await input.pub.getBalance({ address: account.address });
+    const gasPrice = await input.pub.getGasPrice();
+    const estimatedGas = await input.pub.estimateContractGas({
+      address: ARCPAD_CURVE_PAD, abi: ARCPAD_ABI, functionName: "createToken",
+      args, account, value,
+    });
+    const minimum = value + gasPrice * estimatedGas;
+    if (balance < minimum) {
+      throw new Error(`Insufficient Arc USDC for this launch. Balance: ${formatUnits(balance, 18)} USDC; estimated required: ${formatUnits(minimum, 18)} USDC.`);
+    }
     ({ request } = await input.pub.simulateContract({
       address: ARCPAD_CURVE_PAD, abi: ARCPAD_ABI, functionName: "createToken",
-      args, account: input.wallet.account, value, gas: 3_000_000n,
+      args, account, value,
     }));
-  } catch {
-    throw new Error("ArcPad could not simulate this launch. Check the Arc wallet balance and try again.");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("Insufficient Arc USDC")) throw error;
+    throw new Error(`ArcPad simulation failed: ${message}`);
   }
   let hash: `0x${string}`;
   try {
