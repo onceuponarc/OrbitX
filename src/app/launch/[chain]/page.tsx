@@ -1,6 +1,7 @@
 import { LaunchStudio } from "@/components/launch/launch-studio";
 import { SolanaLaunchStudio } from "@/components/launch/solana-launch-studio";
 import { RhLaunchStudio } from "@/components/launch/rh-launch-studio";
+import { ArcLaunchStudio } from "@/components/launch/arc-launch-studio";
 import { LaunchChainSwitch } from "@/components/launch/chain-switch";
 import { BetaNotice, RiskFeeNotice } from "@/components/launch/beta-notice";
 import { getSessionUser } from "@/lib/auth";
@@ -60,7 +61,7 @@ export default async function LaunchChainPage({ params }: Props) {
       ) : robinhood ? (
         <RhLaunchStudio handle={profile?.handle ?? null} />
       ) : (
-        <LaunchStudio chain="arc" handle={profile?.handle ?? null} signedIn={Boolean(profile)} />
+        <ArcLaunchStudio handle={profile?.handle ?? null} />
       )}
     </div>
   );

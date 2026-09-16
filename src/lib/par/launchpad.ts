@@ -11,15 +11,20 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { ARC_MAINNET } from "@onceupon/config/arc";
-import { ARC_V4 } from "@onceupon/config/ubi-v4";
 import { RH } from "@onceupon/config/rh";
 
 export type ParNetwork = "arc" | "robinhood";
+export type ParFeeMode = "creator" | "holders" | "burn" | "floor";
 
+const ZERO = "0x0000000000000000000000000000000000000000" as Address;
+const ARC_USDC = "0x3600000000000000000000000000000000000000" as Address;
+const ARC_MULTI_FACTORY = "0x920Ca489f8c9573645b8aB00dad60fc81c9487fd" as Address;
+const ARC_MULTI_ROUTER = "0x7cda46222a6B202f6B18A51b9a558Bc38a655083" as Address;
+const ARC_HOLDER_VAULT = "0x64D085E5269fdAFfc28363f21b208f8A2EfCcD0A" as Address;
+const ARC_BURN_VAULT = "0x4067820296a0C717c3e31B05E98505b3215c5544" as Address;
+const ARC_FLOOR_VAULT = "0x5567633b002f935181f0fEAa8953Bd0ad5610b0D" as Address;
 const RH_MULTI_FACTORY = "0x3ea29975a79900179F3e1aEF93347Ba4210c29C1" as Address;
 const RH_MULTI_ROUTER = "0x458D2a59c2F3dd32775a64eE72004561440d64Df" as Address;
-const ARC_MULTI_FACTORY_MAINNET = ARC_V4.flaunchZap as Address;
-const ARC_MULTI_ROUTER_MAINNET = ARC_V4.flaunch as Address;
 
 const tokenParams = {
   type: "tuple",
@@ -28,17 +33,11 @@ const tokenParams = {
     { name: "symbol", type: "string" },
     { name: "logo", type: "string" },
     { name: "description", type: "string" },
-    {
-      name: "socials",
-      type: "tuple",
-      components: [
-        { name: "twitter", type: "string" },
-        { name: "telegram", type: "string" },
-        { name: "discord", type: "string" },
-        { name: "website", type: "string" },
-        { name: "farcaster", type: "string" },
-      ],
-    },
+    { name: "socials", type: "tuple", components: [
+      { name: "twitter", type: "string" }, { name: "telegram", type: "string" },
+      { name: "discord", type: "string" }, { name: "website", type: "string" },
+      { name: "farcaster", type: "string" },
+    ] },
     { name: "creatorFeeRecipient", type: "address" },
     { name: "creatorTaxBps", type: "uint16" },
     { name: "expectedEconomics", type: "bytes32" },
@@ -47,59 +46,34 @@ const tokenParams = {
 } as const;
 
 export const PAR_MULTI_FACTORY_ABI = [
-  {
-    type: "function",
-    name: "launchFee",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "weth",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "address" }],
-  },
-  {
-    type: "function",
-    name: "launchToken",
-    stateMutability: "payable",
-    inputs: [tokenParams, { name: "launchConfigId", type: "uint256" }, { name: "pairTokens", type: "address[]" }],
-    outputs: [{ name: "token", type: "address" }],
-  },
+  { type: "function", name: "launchFee", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "nativeIsReference", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+  { type: "function", name: "previewLaunchEconomics", stateMutability: "view", inputs: [{ name: "launchConfigId", type: "uint256" }, { name: "pairTokens", type: "address[]" }], outputs: [{ type: "bytes32" }] },
+  { type: "function", name: "launchToken", stateMutability: "payable", inputs: [tokenParams, { name: "launchConfigId", type: "uint256" }, { name: "pairTokens", type: "address[]" }], outputs: [{ name: "token", type: "address" }] },
+] as const;
+
+export const PAR_MULTI_ROUTER_ABI = [
+  { type: "function", name: "launchAndBuyWithReference", stateMutability: "payable", inputs: [tokenParams, { name: "launchConfigId", type: "uint256" }, { name: "pairTokens", type: "address[]" }, { name: "legs", type: "tuple[]" }, { name: "amountIn", type: "uint256" }, { name: "minTokensOut", type: "uint256" }], outputs: [{ name: "token", type: "address" }, { name: "tokensOut", type: "uint256" }] },
 ] as const;
 
 function chainFor(network: ParNetwork): Chain {
-  if (network === "robinhood") {
-    return {
-      id: RH.chainId,
-      name: RH.name,
-      nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-      rpcUrls: { default: { http: [RH.rpcUrl] } },
-      blockExplorers: { default: { name: "Blockscout", url: RH.explorer } },
-    };
-  }
-  if (process.env.ARC_CHAIN_ID !== String(ARC_MAINNET.chainId)) {
-    throw new Error("Par Arc mainnet is not configured. Refusing to launch on Arc testnet.");
-  }
+  if (network === "robinhood") return {
+    id: RH.chainId, name: RH.name, nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+    rpcUrls: { default: { http: [RH.rpcUrl] } }, blockExplorers: { default: { name: "Blockscout", url: RH.explorer } },
+  };
+  if (process.env.ARC_CHAIN_ID && process.env.ARC_CHAIN_ID !== "5042") throw new Error("Par Arc launch is mainnet-only (chain 5042).");
   return {
-    id: ARC_MAINNET.chainId,
-    name: ARC_MAINNET.name,
-    nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-    rpcUrls: { default: { http: [process.env.ARC_RPC_URL || ARC_MAINNET.rpcUrls[0]] } },
-    blockExplorers: { default: { name: "Arcscan", url: ARC_MAINNET.explorer } },
+    id: 5042, name: "Arc", nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+    rpcUrls: { default: { http: [process.env.ARC_RPC_URL || "https://rpc.mainnet.arc.io"] } },
+    blockExplorers: { default: { name: "Arc Explorer", url: "https://www.arcexplorer.org" } },
   };
 }
 
 export function parAddresses(network: ParNetwork) {
-  // Par's multi factory uses native ETH as the RH reference asset; address(0)
-  // is the correct pair token there. Arc uses the USDC ERC-20 reference.
-  if (network === "robinhood") return { factory: RH_MULTI_FACTORY, router: RH_MULTI_ROUTER, pairToken: "0x0000000000000000000000000000000000000000" as Address };
+  if (network === "robinhood") return { factory: RH_MULTI_FACTORY, router: RH_MULTI_ROUTER, defaultPairToken: ZERO, feeRecipients: {} as Record<ParFeeMode, Address> };
   return {
-    factory: (process.env.PAR_ARC_MULTI_FACTORY || ARC_MULTI_FACTORY_MAINNET) as Address,
-    router: (process.env.PAR_ARC_MULTI_ROUTER || ARC_MULTI_ROUTER_MAINNET) as Address,
-    pairToken: (process.env.PAR_ARC_USDC || ARC_MAINNET.usdcErc20) as Address,
+    factory: ARC_MULTI_FACTORY, router: ARC_MULTI_ROUTER, defaultPairToken: ARC_USDC,
+    feeRecipients: { creator: ZERO, holders: ARC_HOLDER_VAULT, burn: ARC_BURN_VAULT, floor: ARC_FLOOR_VAULT } satisfies Record<ParFeeMode, Address>,
   };
 }
 
@@ -109,52 +83,41 @@ function walletFor(network: ParNetwork): WalletClient {
   const account = privateKeyToAccount((secret.startsWith("0x") ? secret : `0x${secret}`) as `0x${string}`);
   return createWalletClient({ account, chain: chainFor(network), transport: http() });
 }
-
-function publicFor(network: ParNetwork): PublicClient {
-  return createPublicClient({ chain: chainFor(network), transport: http() });
-}
+function publicFor(network: ParNetwork): PublicClient { return createPublicClient({ chain: chainFor(network), transport: http() }); }
 
 export async function launchWithPar(input: {
-  network: ParNetwork;
-  name: string;
-  symbol: string;
-  logo?: string;
-  description: string;
-  twitter?: string;
-  telegram?: string;
-  website?: string;
-  creator: Address;
-  creatorTaxBps?: number;
-  wallet?: WalletClient;
-  pub?: PublicClient;
+  network: ParNetwork; name: string; symbol: string; logo?: string; description: string;
+  twitter?: string; telegram?: string; website?: string; creator: Address; creatorTaxBps?: number;
+  pairTokens?: Address[]; feeMode?: ParFeeMode; wallet?: WalletClient; pub?: PublicClient;
 }) {
   const wallet = input.wallet ?? walletFor(input.network);
   const pub = input.pub ?? publicFor(input.network);
-  const { factory, pairToken } = parAddresses(input.network);
-  const launchFee = await pub.readContract({ address: factory, abi: PAR_MULTI_FACTORY_ABI, functionName: "launchFee" });
+  const addresses = parAddresses(input.network);
+  const pairTokens = input.pairTokens?.length ? input.pairTokens : [addresses.defaultPairToken];
+  if (pairTokens.length < 1 || pairTokens.length > 5) throw new Error("Choose between 1 and 5 quote assets.");
+  const unique = new Set(pairTokens.map((x) => x.toLowerCase()));
+  if (unique.size !== pairTokens.length) throw new Error("Quote assets must be unique.");
+  if (input.network === "arc" && pairTokens.some((x) => x.toLowerCase() === ZERO.toLowerCase())) throw new Error("Arc uses the USDC reference asset; native address(0) is not a valid Arc quote.");
+  const mode = input.feeMode ?? "creator";
+  const recipient = mode === "creator" ? input.creator : addresses.feeRecipients[mode];
+  if (!recipient) throw new Error(`Fee mode ${mode} is not configured for ${input.network}.`);
+  const launchFee = await pub.readContract({ address: addresses.factory, abi: PAR_MULTI_FACTORY_ABI, functionName: "launchFee" });
+  // Pool-priced quote assets can move between preview and inclusion. Par requires
+  // a zero digest for those; only the fixed Arc USDC reference is pinned here.
+  const expectedEconomics = pairTokens.every((token) => token.toLowerCase() === ARC_USDC.toLowerCase())
+    ? await pub.readContract({ address: addresses.factory, abi: PAR_MULTI_FACTORY_ABI, functionName: "previewLaunchEconomics", args: [0n, pairTokens] })
+    : "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
   const salt = `0x${Buffer.from(`${input.creator}:${input.name}:${input.symbol}:${Date.now()}`).toString("hex").padEnd(64, "0").slice(0, 64)}` as `0x${string}`;
   const params = {
-    name: input.name.slice(0, 32),
-    symbol: input.symbol.toUpperCase().slice(0, 10),
-    logo: input.logo || "",
+    name: input.name.slice(0, 32), symbol: input.symbol.toUpperCase().slice(0, 10), logo: input.logo || "",
     description: input.description || "Launched on OrbitX",
     socials: { twitter: input.twitter || "", telegram: input.telegram || "", discord: "", website: input.website || "", farcaster: "" },
-    creatorFeeRecipient: input.creator,
-    creatorTaxBps: input.creatorTaxBps ?? 0,
-    expectedEconomics: "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
-    salt,
+    creatorFeeRecipient: recipient, creatorTaxBps: Math.max(0, Math.min(1000, input.creatorTaxBps ?? 100)), expectedEconomics, salt,
   } as const;
-  const { request, result } = await pub.simulateContract({
-    address: factory,
-    abi: PAR_MULTI_FACTORY_ABI,
-    functionName: "launchToken",
-    args: [params, 0n, [pairToken]],
-    account: wallet.account,
-    value: launchFee,
-  });
+  const { request, result } = await pub.simulateContract({ address: addresses.factory, abi: PAR_MULTI_FACTORY_ABI, functionName: "launchToken", args: [params, 0n, pairTokens], account: wallet.account, value: launchFee });
   const hash = await wallet.writeContract(request);
   const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error("Par launch reverted.");
   const token = (result as Address) || null;
-  return { hash, token, factory, pairToken, launchFee: launchFee.toString(), explorer: `${chainFor(input.network).blockExplorers?.default.url}/tx/${hash}` };
+  return { hash, token, factory: addresses.factory, router: addresses.router, pairTokens, feeMode: mode, creatorFeeRecipient: recipient, launchFee: launchFee.toString(), explorer: `${chainFor(input.network).blockExplorers?.default.url}/tx/${hash}` };
 }
