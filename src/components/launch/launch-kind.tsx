@@ -27,12 +27,6 @@ export const LAUNCH_KINDS = [
     title: "Token + card",
     body: "Launch both. Coin trades on the curve. Card value tracks that MC. Separate books.",
   },
-  {
-    id: "v4",
-    label: "V4",
-    title: "Uniswap v4 on Arc",
-    body: "Direct or Fair Launch. Anti-snipe window. Creator rewards to an X handle. USDC pool from block one.",
-  },
 ] as const;
 
 export type LaunchKind = (typeof LAUNCH_KINDS)[number]["id"];

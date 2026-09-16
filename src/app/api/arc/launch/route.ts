@@ -4,7 +4,7 @@ import { deskEvmWallet } from "@/lib/wallets/sign-desk";
 import { launchWithArcPad } from "@/lib/arc/arcpad";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
-import { createPublicClient, http, type Address } from "viem";
+import { createPublicClient, http } from "viem";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,14 +12,6 @@ export const maxDuration = 60;
 
 function slugify(input: string) {
   return input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
-}
-
-function addressList(value: unknown): Address[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const values = value.filter((x): x is string => typeof x === "string").map((x) => x.trim());
-  if (!values.length) return undefined;
-  if (values.some((x) => !/^0x[0-9a-fA-F]{40}$/.test(x))) throw new Error("Every quote asset must be a valid Arc address.");
-  return values as Address[];
 }
 
 export async function POST(request: Request) {
@@ -53,7 +45,7 @@ export async function POST(request: Request) {
         website_url: website, twitter_url: profile?.handle ? `https://x.com/${profile.handle}` : null,
         author_user_id: user.id, author_wallet: address, engine: "author", status: "live",
         author_bps: 0, chain: "arc", venue: "arcpad", pair_class: "other",
-        pair_label: "USDC", 
+        pair_label: "USDC",
         mint_decimals: 18, token_address: result.token, created_tx: result.hash,
       });
     } catch (insertError) {

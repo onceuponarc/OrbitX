@@ -6,7 +6,7 @@ import { CopyCa } from "@/components/story/copy-ca";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 
 export type LiveLaunch = {
-  venue: "pumpfun" | "uniswap-v4" | "pons" | "arcpad";
+  venue: "pumpfun" | "pons" | "arcpad";
   name: string;
   symbol: string;
   blurb?: string;
@@ -41,8 +41,8 @@ function linksFor(live: LiveLaunch) {
     ].filter((item): item is { href: string; label: string } => Boolean(item));
   }
   return [
-    { href: `https://www.arcscan.org/address/${live.mint}`, label: "Arcscan" },
-    live.signature ? { href: `https://www.arcscan.org/tx/${live.signature}`, label: "Launch tx" } : null,
+    { href: `https://www.arcexplorer.org/address/${live.mint}`, label: "Arc Explorer" },
+    live.signature ? { href: `https://www.arcexplorer.org/tx/${live.signature}`, label: "Launch tx" } : null,
   ].filter((item): item is { href: string; label: string } => Boolean(item));
 }
 
@@ -50,7 +50,7 @@ function venueLine(venue: LiveLaunch["venue"]) {
   if (venue === "pumpfun") return "Live on pump.fun";
   if (venue === "pons") return "Live on Robinhood · Pons";
   if (venue === "arcpad") return "Live on Arc · ArcPad";
-  return "Live on Arc · Uniswap v4";
+  return "Live on Arc · ArcPad";
 }
 
 export function LaunchLiveCard({ live, onAgain }: { live: LiveLaunch; onAgain: () => void }) {

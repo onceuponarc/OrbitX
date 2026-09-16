@@ -73,11 +73,7 @@ export const ARC_NETWORKS = {
     chainId: "0x13B2",
     chainName: "Arc",
     nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-    rpcUrls: [
-      "https://rpc.mainnet.arc.io",
-      "https://rpc.arc-scan.org",
-      "https://arc-mainnet.infura.io/v3/b6bf7d3508c941499b10025c0776eaf8",
-    ],
+    rpcUrls: ["https://rpc.mainnet.arc.io"],
     blockExplorerUrls: ["https://arcscan.app"],
   },
 } as const;

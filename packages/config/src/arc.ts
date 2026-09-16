@@ -71,8 +71,6 @@ export const ARC_MAINNET = {
   usdcErc20Decimals: 6,
   rpcUrls: [
     "https://rpc.mainnet.arc.io",
-    "https://rpc.arc-scan.org",
-    "https://arc-mainnet.infura.io/v3/b6bf7d3508c941499b10025c0776eaf8",
   ],
   explorer: "https://arcscan.app",
   factory: "0x3FD6f451803CD0eC616da6Ef8228E6EC56C24086" as `0x${string}`,

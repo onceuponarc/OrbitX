@@ -67,7 +67,7 @@ export function ToolsDesk() {
       <section className="rounded-2xl border border-white/10 p-5">
         <h2 className="text-xl font-semibold">Add Arc to a wallet</h2>
         <p className="mt-2 text-sm text-white/55">
-          Arc RPC <span className="font-mono">https://rpc.arc-scan.org</span> · chain 5042 · USDC gas.
+          Arc mainnet RPC <span className="font-mono">https://rpc.mainnet.arc.io</span> · chain 5042 · USDC gas.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button type="button" onClick={() => void addTestnet()}>

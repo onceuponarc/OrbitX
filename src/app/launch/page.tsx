@@ -6,8 +6,8 @@ const LANES = [
   {
     href: "/launch/arc",
     label: "Arc",
-    status: "Uniswap v4 · beta",
-    body: "Direct print on Uniswap v4. Tradable from the first block. Fund the in-app Arc wallet with USDC.",
+    status: "ArcPad · live",
+    body: "Fixed-supply launch through ArcPad with locked liquidity. Fund the in-app Arc wallet with USDC.",
     beta: true,
   },
   {

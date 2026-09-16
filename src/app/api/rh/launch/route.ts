@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { launchWithPar } from "@/lib/par/launchpad";
+import { launchWithPons, type PonsLaunchInput } from "@/lib/rh/pons";
 import { deskRhWallet } from "@/lib/wallets/rh-client";
 import { RH } from "@onceupon/config/rh";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
@@ -38,8 +38,7 @@ export async function POST(request: Request) {
     const twitter = normalizeUrl(body.twitter, "twitter", profile?.handle ? `https://x.com/${profile.handle}` : "");
     const website = normalizeUrl(body.website, "website", PUBLIC_SITE_URL);
     const telegram = normalizeUrl(body.telegram, "telegram");
-    const result = await launchWithPar({
-      network: "robinhood",
+    const result = await launchWithPons({
       name,
       symbol,
       description: `${(body.description ?? "").trim() || "Launched on OrbitX"}\n\nOfficial launchpad: OrbitX · https://www.orbitxtrade.world · X: https://x.com/orbitx_wrld`,
@@ -49,6 +48,7 @@ export async function POST(request: Request) {
       telegram,
       creator: address,
       creatorTaxBps: 100,
+      buybackEnabled: false,
       wallet,
       pub,
     });
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
         cover_url: body.coverUrl ?? null, image_uri: body.coverUrl ?? null,
         website_url: website || null, twitter_url: twitter || null, telegram_url: telegram || null,
         author_user_id: user.id, author_wallet: address, engine: "author", status: "live",
-        author_bps: 100, chain: "robinhood", venue: "par", pair_class: "other", pair_label: "ETH",
+        author_bps: 100, chain: "robinhood", venue: "pons", pair_class: "other", pair_label: "ETH",
         mint_decimals: 18, token_address: result.token, created_tx: result.hash,
       });
     } catch (error) {
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ...result, slug, creator: address, feeRecipient: address,
-      explorer: `${RH.explorer}/tx/${result.hash}`, venue: "par-multi",
+      explorer: `${RH.explorer}/tx/${result.hash}`, venue: "pons",
       note: "PairPad multi-market launch on Robinhood Chain.",
     });
   } catch (error) {
