@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
-import { Keypair } from "@solana/web3.js";
 import { getSessionUser } from "@/lib/auth";
-import { generateVanityMint, VANITY_SUFFIX } from "@/lib/solana/vanity";
+import { resolveLaunchMint, VanityTimeoutError, VANITY_SUFFIX } from "@/lib/solana/vanity";
 import { buildCreateV2Tx, parseQuoteMintChoice, type PoolPairChoice } from "@/lib/solana/pump-sdk";
 import { sendSignedTx, waitForTx, explorerFromSig } from "@/lib/solana/partial-tx";
 import { fetchLatestBlockhash } from "@/lib/solana/blockhash";
+import { feeTransferInstructions, launchFeeLamports, WSOL_MINT } from "@/lib/solana/orbitx-fee";
 import { serverSolanaRpcs } from "@/lib/solana/rpc-urls";
 import { deskSolanaKey } from "@/lib/wallets/sign-desk";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 import { PAD_NAME } from "@onceupon/config/launchpad";
+
+const ORBITX_BRAND_LOGO = `${PUBLIC_SITE_URL}/brand/logo.jpg`;
+const ORBITX_BRAND_X = "https://x.com/orbitx_wrld";
+const ORBITX_BRAND_TELEGRAM = "https://t.me/orbitx_wrld";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -29,6 +33,17 @@ function normalizeUrl(raw: string | undefined, kind: "website" | "twitter" | "te
   if (kind === "twitter") return `https://x.com/${value.replace(/^@/, "")}`;
   if (kind === "telegram") return `https://t.me/${value.replace(/^@/, "")}`;
   return `https://${value}`;
+}
+
+async function solUsdPrice(): Promise<number> {
+  const response = await fetch("https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112", {
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("Could not price the launch fee right now.");
+  const payload = (await response.json()) as { data?: Record<string, { price?: string }> };
+  const price = Number(payload.data?.[WSOL_MINT]?.price);
+  if (!Number.isFinite(price) || price <= 0) throw new Error("Could not price the launch fee right now.");
+  return price;
 }
 
 export async function POST(request: Request) {
@@ -68,10 +83,9 @@ export async function POST(request: Request) {
     const requestedFeeBps = Math.max(0, Math.min(300, Math.round(Number(body.creatorFeeBps ?? 0))));
 
     const payer = await deskSolanaKey(user.id);
-    const minted =
-      body.vanity === false
-        ? { keypair: Keypair.generate(), tries: 1, vanity: false }
-        : generateVanityMint(VANITY_SUFFIX);
+    // Throws VanityTimeoutError if a vanity mint was requested and not found.
+    // Nothing has been sent on-chain at this point, so that is a clean retry.
+    const minted = await resolveLaunchMint(body.vanity !== false);
     const mintAddress = minted.keypair.publicKey.toBase58();
     const metadataUri =
       body.metadataUri || `${PUBLIC_SITE_URL}/api/token/${mintAddress}/metadata`;
@@ -96,8 +110,8 @@ export async function POST(request: Request) {
         title: name,
         ticker: symbol,
         blurb,
-        cover_url: body.coverUrl ?? null,
-        image_uri: body.coverUrl ?? null,
+        cover_url: body.coverUrl || ORBITX_BRAND_LOGO,
+        image_uri: body.coverUrl || ORBITX_BRAND_LOGO,
         website_url: websiteUrl,
         twitter_url: twitterUrl,
         telegram_url: telegramUrl,
@@ -132,6 +146,16 @@ export async function POST(request: Request) {
       quoteMint,
     });
 
+    const launchFee = launchFeeLamports(await solUsdPrice());
+    built.tx.add(
+      ...feeTransferInstructions({
+        payer: payer.publicKey,
+        feeMint: WSOL_MINT,
+        feeRaw: launchFee,
+        decimals: 9,
+      }),
+    );
+
     const latest = await fetchLatestBlockhash(serverSolanaRpcs());
     built.tx.feePayer = payer.publicKey;
     built.tx.recentBlockhash = latest.blockhash;
@@ -158,9 +182,15 @@ export async function POST(request: Request) {
         name,
         symbol,
         description: blurb || `${name} launched on ${PAD_NAME}.`,
-        image: body.coverUrl,
+        image: body.coverUrl || ORBITX_BRAND_LOGO,
         createdOn: PUBLIC_SITE_URL,
         launchpad: PAD_NAME,
+        brand: "OrbitX",
+        brandName: "OrbitX",
+        brandUrl: PUBLIC_SITE_URL,
+        brandLogo: ORBITX_BRAND_LOGO,
+        officialX: ORBITX_BRAND_X,
+        officialTelegram: ORBITX_BRAND_TELEGRAM,
         creatorX: profile?.handle ? `@${profile.handle}` : "",
         website: websiteUrl ?? undefined,
         twitter: twitterUrl ?? undefined,
@@ -168,6 +198,21 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    // A vanity timeout happens before anything is sent on-chain and before the
+    // stories row is written, so it is a clean retry rather than a failed launch.
+    // Returned as 503 + retryable so the client can offer "try again" instead of
+    // silently producing a non-vanity token, which is what used to happen.
+    if (error instanceof VanityTimeoutError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          retryable: true,
+          suffix: error.suffix,
+          tries: error.tries,
+        },
+        { status: 503 },
+      );
+    }
     // If we already inserted a "live" stories row optimistically (so the metadata
     // endpoint would resolve before pump.fun's indexer asked for it) and the mint
     // transaction itself then failed on-chain, that row would otherwise sit on the

@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { OFFICIAL_TOKEN } from "@/lib/official-token";
-
 const COLS = [
   {
     title: "Desk",
@@ -54,7 +52,7 @@ export function SiteFooter() {
             className="mt-4 block w-full max-w-xs rounded-xl border border-arc/20 bg-arc/[0.05] px-3 py-2 hover:border-arc/40"
           >
             <p className="text-xs font-medium text-arc">Official token · $ORBITX live</p>
-            <p className="mt-1 break-all font-mono text-[11px] text-white/45">{OFFICIAL_TOKEN.mint}</p>
+            <p className="mt-1 font-mono text-[11px] text-white/45">Verified through official channels</p>
           </Link>
         </div>
         {COLS.map((col) => (
