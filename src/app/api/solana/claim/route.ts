@@ -1,27 +1,24 @@
 import { NextResponse } from "next/server";
-import { VersionedTransaction } from "@solana/web3.js";
-import { getSessionUser } from "@/lib/auth";
 import { pumpCollectFeeTx } from "@/lib/solana/pumpportal";
-import { sendSignedTx, waitForTx, explorerFromSig } from "@/lib/solana/partial-tx";
-import { deskSolanaKey } from "@/lib/wallets/sign-desk";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function POST() {
+/** Builds Pump.fun's real collectCreatorFee transaction for the connected wallet.
+ * The wallet signs locally; OrbitX never receives a private key or submits on its behalf.
+ */
+export async function POST(request: Request) {
   try {
-    const { user } = await getSessionUser();
-    if (!user) return NextResponse.json({ error: "Sign in with X first." }, { status: 401 });
-    const payer = await deskSolanaKey(user.id);
-    const built = await pumpCollectFeeTx(payer.publicKey.toBase58());
-    const tx = VersionedTransaction.deserialize(Buffer.from(built, "base64"));
-    tx.sign([payer]);
-    const signature = await sendSignedTx(Buffer.from(tx.serialize()).toString("base64"));
-    await waitForTx(signature);
-    return NextResponse.json({ signature, explorer: explorerFromSig(signature), creator: payer.publicKey.toBase58() });
+    const body = (await request.json().catch(() => ({}))) as { publicKey?: string };
+    const publicKey = (body.publicKey ?? "").trim();
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(publicKey)) {
+      return NextResponse.json({ error: "Enter a valid Solana wallet address." }, { status: 400 });
+    }
+    const transaction = await pumpCollectFeeTx(publicKey);
+    return NextResponse.json({ transaction, creator: publicKey, mechanism: "collectCreatorFee" });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Claim failed." },
+      { error: error instanceof Error ? error.message : "Could not build the Pump.fun claim transaction." },
       { status: 400 },
     );
   }

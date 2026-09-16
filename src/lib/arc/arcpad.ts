@@ -76,6 +76,7 @@ export async function launchWithArcPad(input: {
   if (receipt.status !== "success") throw new Error("ArcPad launch reverted. No token was created.");
   const events = parseEventLogs({ abi: ARCPAD_ABI, logs: receipt.logs, eventName: "TokenCreated" });
   const token = events[0]?.args.token as Address | undefined;
-  if (!token) throw new Error("ArcPad launch confirmed, but the token address was not found in the confirmation event.");
-  return { hash, token, factory: ARCPAD_CURVE_PAD, router: null, pairTokens: [ARC_USDC], venue: "arcpad" as const, launchFee: value.toString(), explorer: `https://www.arcexplorer.org/tx/${hash}` };
+  const pool = events[0]?.args.pool as Address | undefined;
+  if (!token || !pool) throw new Error("ArcPad launch confirmed, but token/pool data was not found in the confirmation event.");
+  return { hash, token, pool, factory: ARCPAD_CURVE_PAD, router: null, pairTokens: [ARC_USDC], venue: "arcpad" as const, launchFee: value.toString(), explorer: `https://www.arcexplorer.org/tx/${hash}` };
 }

@@ -25,11 +25,12 @@ import { CardRail } from "@/components/cards/card-rail";
 import { DexScreenerEmbed } from "@/components/token/dexscreener-embed";
 import { TokenChat } from "@/components/token/token-chat";
 import { TradePanel } from "@/components/token/trade-panel";
+import { EvmTrade } from "@/components/token/evm-trade";
 import { RiskFeeNotice } from "@/components/launch/beta-notice";
 import { ClaimFeesButton } from "@/components/token/claim-fees-button";
 
 const STORY_SELECT =
-  "id, title, ticker, blurb, engine, status, pair_label, author_bps, protocol_bps, snipe_tax_bps, vault_address, token_address, chain, venue, mint_decimals, created_tx, curve_quote_lamports, curve_token_raw, auto_buy_rewards, quote_decimals, graduation_quote_raw, author_user_id, cover_url, jacket_url, twitter_url, telegram_url, website_url, image_uri, metadata_uri, supply, reward_vault_lamports, quote_mint, linked_pool_address, linked_pool_dex, linked_pool_label, users:author_user_id(handle, display_name, portrait_url)";
+  "id, title, ticker, blurb, engine, status, pair_label, author_bps, protocol_bps, snipe_tax_bps, vault_address, token_address, chain, venue, mint_decimals, created_tx, curve_quote_lamports, curve_token_raw, auto_buy_rewards, quote_decimals, graduation_quote_raw, author_user_id, cover_url, jacket_url, twitter_url, telegram_url, website_url, image_uri, metadata_uri, supply, reward_vault_lamports, quote_mint, curve_address, linked_pool_address, linked_pool_dex, linked_pool_label, users:author_user_id(handle, display_name, portrait_url)";
 const STORY_SELECT_MIN =
   "id, title, ticker, blurb, engine, status, pair_label, author_bps, protocol_bps, vault_address, token_address, chain, venue, mint_decimals, created_tx, curve_quote_lamports, curve_token_raw, auto_buy_rewards, quote_decimals, graduation_quote_raw, author_user_id, cover_url, supply, reward_vault_lamports, quote_mint, users:author_user_id(handle, display_name, portrait_url)";
 
@@ -285,19 +286,17 @@ export default async function StoryPage({
               <TradePanel tokenMint={story.token_address} tokenSymbol={story.ticker} signedIn={Boolean(profile)} />
               <RiskFeeNotice variant="trade" />
             </div>
+          ) : chain === "robinhood" && story.token_address ? (
+            <EvmTrade
+              chain="robinhood"
+              token={story.token_address}
+              curve={(story as { curve_address?: string | null }).curve_address ?? story.vault_address}
+              symbol={story.ticker}
+              quoteLabel="ETH"
+            />
           ) : (
             <div className="flex h-fit flex-col items-center justify-center gap-2 rounded-3xl border border-white/10 p-6 text-center text-sm text-white/45">
-              <p>In-app trading isn&apos;t wired up for Robinhood Chain yet.</p>
-              {story.token_address ? (
-                <a
-                  href={`https://explorer.robinhood.com/address/${story.token_address}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline"
-                >
-                  Trade on the Robinhood Chain explorer
-                </a>
-              ) : null}
+              <p>This token has no recorded trading curve.</p>
             </div>
           )}
         </div>
@@ -320,11 +319,24 @@ export default async function StoryPage({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {story.status !== "graduated" ? (
-                  <ArcTrade slug={slug} pairLabel={story.pair_label} />
-                ) : (
-                  <p className="text-sm text-parchment/70">This Chapter graduated. The book is open.</p>
-                )}
+                {story.token_address ? (
+                  <EvmTrade
+                    chain="arc"
+                    token={story.token_address}
+                    symbol={story.ticker}
+                    quoteLabel="USDC"
+                  />
+                ) : <p className="text-sm text-parchment/70">This token has no recorded address.</p>}
+                {story.token_address ? (
+                  <a
+                    href={`https://arcpad.meme/token/${story.token_address}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-block text-sm underline"
+                  >
+                    Open this token on ArcPad
+                  </a>
+                ) : null}
               </CardContent>
             </Card>
           </div>

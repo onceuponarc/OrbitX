@@ -36,5 +36,5 @@ export async function launchWithPons(input: PonsLaunchInput) {
   const hash = await input.wallet.writeContract(request);
   const receipt = await input.pub.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error("Pons launch reverted.");
-  return { hash, token: result[0] as Address, factory: PONS_FACTORY, router: null, pairTokens: [], launchFee: fee.toString(), venue: "pons" as const };
+  return { hash, token: result[0] as Address, curve: result[1] as Address, factory: PONS_FACTORY, router: null, pairTokens: [], launchFee: fee.toString(), venue: "pons" as const };
 }

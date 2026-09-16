@@ -7,11 +7,13 @@ type Injected = {
   isPhantom?: boolean;
   isSolflare?: boolean;
   isBackpack?: boolean;
+  isJupiter?: boolean;
   publicKey?: { toBase58(): string } | string | null;
   connect: (opts?: { onlyIfTrusted?: boolean }) => Promise<unknown>;
   disconnect?: () => Promise<void>;
   signTransaction?: (tx: unknown) => Promise<unknown>;
   signAndSendTransaction?: (tx: unknown, opts?: unknown) => Promise<unknown>;
+  sendTransaction?: (tx: unknown, connection: unknown, opts?: unknown) => Promise<unknown>;
   signAllTransactions?: (txs: unknown[]) => Promise<unknown>;
   signMessage?: (message: Uint8Array) => Promise<{ signature: Uint8Array } | Uint8Array>;
 };
@@ -71,12 +73,15 @@ function detect(): DetectedWallet[] {
   const solana = (window as Window & { solana?: Injected }).solana;
   const solflare = (window as Window & { solflare?: Injected }).solflare;
   const backpack = (window as Window & { backpack?: Injected }).backpack;
+  const jupiterRoot = (window as Window & { jupiter?: { solana?: Injected } }).jupiter;
+  const jupiter = jupiterRoot?.solana;
   const add = (id: string, name: string, provider?: Injected) => {
     if (provider && !list.some((item) => item.id === id)) list.push({ id, name, provider });
   };
   add("phantom", "Phantom", phantom ?? (solana?.isPhantom ? solana : undefined));
   add("solflare", "Solflare", solflare);
   add("backpack", "Backpack", backpack);
+  add("jupiter", "Jupiter Wallet", jupiter);
   return list;
 }
 

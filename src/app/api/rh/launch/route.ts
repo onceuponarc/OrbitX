@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         website_url: website || null, twitter_url: twitter || null, telegram_url: telegram || null,
         author_user_id: user.id, author_wallet: address, engine: "author", status: "live",
         author_bps: 100, chain: "robinhood", venue: "pons", pair_class: "other", pair_label: "ETH",
-        mint_decimals: 18, token_address: result.token, created_tx: result.hash,
+        mint_decimals: 18, token_address: result.token, vault_address: result.curve, curve_address: result.curve, created_tx: result.hash,
       });
     } catch (error) {
       console.error("RH Par launch: stories insert failed", error);
