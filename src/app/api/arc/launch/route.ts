@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { deskEvmWallet } from "@/lib/wallets/sign-desk";
-import { launchWithArcPad } from "@/lib/arc/arcpad";
+import { launchWithArgus } from "@/lib/arc/argus";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 import { createPublicClient, http } from "viem";
@@ -26,15 +26,15 @@ export async function POST(request: Request) {
     const ticker = (body.ticker ?? "").trim().toUpperCase();
     if (!title || !ticker) return NextResponse.json({ error: "Name and ticker are required." }, { status: 400 });
     if (!body.rightsAttested) return NextResponse.json({ error: "Attest you have the rights to the art and name." }, { status: 400 });
-    // Arc launches use ArcPad's permissionless fixed-supply launcher; legacy Par fee fields are ignored.
+    // Arc launches use Argus Portal #7's verified v4 launch contract on Arc mainnet.
     const { wallet, address } = await deskEvmWallet(user.id);
     const pub = createPublicClient({ chain: wallet.chain, transport: http(wallet.chain.rpcUrls.default.http[0]) });
     const website = process.env.NEXT_PUBLIC_SITE_URL || PUBLIC_SITE_URL;
-    const result = await launchWithArcPad({
+    const result = await launchWithArgus({
       name: title, symbol: ticker, creator: address,
       logo: body.coverUrl || undefined,
       twitter: profile?.handle ? `https://x.com/${profile.handle}` : undefined,
-      website, wallet, pub,
+      website, blurb: body.blurb ?? undefined, wallet, pub,
     });
     const slug = `${slugify(title) || slugify(ticker) || "token"}-${Math.random().toString(36).slice(2, 6)}`;
     try {
@@ -44,16 +44,16 @@ export async function POST(request: Request) {
         cover_url: body.coverUrl ?? null, image_uri: body.coverUrl ?? null,
         website_url: website, twitter_url: profile?.handle ? `https://x.com/${profile.handle}` : null,
         author_user_id: user.id, author_wallet: address, engine: "author", status: "live",
-        author_bps: 0, chain: "arc", venue: "arcpad", pair_class: "other",
+        author_bps: 0, chain: "arc", venue: "argus-v4", pair_class: "other",
         pair_label: "USDC",
-        mint_decimals: 18, token_address: result.token, vault_address: result.pool, linked_pool_address: result.pool, linked_pool_dex: "uniswap-v3", linked_pool_label: "ArcPad Uniswap V3", created_tx: result.hash,
+        mint_decimals: 18, token_address: result.token, vault_address: result.hook, linked_pool_address: result.poolId, linked_pool_dex: "uniswap-v4", linked_pool_label: "Argus v4 PoolManager", created_tx: result.hash,
       });
     } catch (insertError) {
-      console.error("ArcPad launch: stories insert failed", insertError);
+      console.error("Argus launch: stories insert failed", insertError);
     }
     return NextResponse.json({
-      ...result, slug, creator: address, venue: "arcpad-arc-mainnet", chainId: 5042,
-      note: "ArcPad fixed-supply launch with an Arc USDC pool and locked liquidity.",
+      ...result, slug, creator: address, venue: "argus-v4-arc-mainnet", chainId: 5042,
+      note: "Argus Portal #7 v4 launch confirmed on Arc mainnet with per-token hook, pool id, and locker recorded.",
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Arc launch failed." }, { status: 400 });

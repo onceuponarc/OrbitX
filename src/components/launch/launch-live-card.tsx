@@ -6,7 +6,7 @@ import { CopyCa } from "@/components/story/copy-ca";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 
 export type LiveLaunch = {
-  venue: "pumpfun" | "pons" | "arcpad";
+  venue: "pumpfun" | "pons" | "argus-v4";
   name: string;
   symbol: string;
   blurb?: string;
@@ -27,11 +27,11 @@ function linksFor(live: LiveLaunch) {
       live.signature ? { href: `https://solscan.io/tx/${live.signature}`, label: "Launch tx" } : null,
     ].filter((item): item is { href: string; label: string } => Boolean(item));
   }
-  if (live.venue === "arcpad") {
+  if (live.venue === "argus-v4") {
     return [
       { href: `https://www.arcexplorer.org/address/${live.mint}`, label: "Arc Explorer" },
       live.signature ? { href: `https://www.arcexplorer.org/tx/${live.signature}`, label: "Launch tx" } : null,
-      { href: `https://arcpad.meme/token/${live.mint}`, label: "ArcPad" },
+      { href: `https://arguspad.io/token/${live.mint}`, label: "Argus" },
     ].filter((item): item is { href: string; label: string } => Boolean(item));
   }
   if (live.venue === "pons") {
@@ -49,8 +49,8 @@ function linksFor(live: LiveLaunch) {
 function venueLine(venue: LiveLaunch["venue"]) {
   if (venue === "pumpfun") return "Live on pump.fun";
   if (venue === "pons") return "Live on Robinhood · Pons";
-  if (venue === "arcpad") return "Live on Arc · ArcPad";
-  return "Live on Arc · ArcPad";
+  if (venue === "argus-v4") return "Live on Arc · Argus";
+  return "Live on Arc · Argus";
 }
 
 export function LaunchLiveCard({ live, onAgain }: { live: LiveLaunch; onAgain: () => void }) {

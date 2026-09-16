@@ -314,7 +314,7 @@ export default async function StoryPage({
               <CardHeader>
                 <CardTitle>Trade</CardTitle>
                 <CardDescription>
-                  Buy and sell the curve in USDC anytime. Graduation seeds the deeper pool from the book.
+                  Argus v4 launch records are live. Buy/sell is routed only through the launch-specific pool id and hook.
                   {snipeTax > 0 ? ` Opening tax ${(snipeTax / 100).toFixed(2)}% on early buys.` : ""}
                 </CardDescription>
               </CardHeader>
@@ -329,12 +329,12 @@ export default async function StoryPage({
                 ) : <p className="text-sm text-parchment/70">This token has no recorded address.</p>}
                 {story.token_address ? (
                   <a
-                    href={`https://arcpad.meme/token/${story.token_address}`}
+                    href={`https://arguspad.io/token/${story.token_address}`}
                     target="_blank"
                     rel="noreferrer"
                     className="mt-4 inline-block text-sm underline"
                   >
-                    Open this token on ArcPad
+                    Open this token on Argus
                   </a>
                 ) : null}
               </CardContent>

@@ -6,8 +6,8 @@ const LANES = [
   {
     href: "/launch/arc",
     label: "Arc",
-    status: "ArcPad · live",
-    body: "Fixed-supply launch through ArcPad with locked liquidity. Fund the in-app Arc wallet with USDC.",
+    status: "Argus · live",
+    body: "Fixed-supply launch through Argus v4 with a per-token hook, pool id, and locked liquidity position. Fund the in-app Arc wallet with USDC.",
     beta: true,
   },
   {

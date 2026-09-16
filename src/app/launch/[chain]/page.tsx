@@ -46,7 +46,7 @@ export default async function LaunchChainPage({ params }: Props) {
             ? "pump.fun. Tradable at create. Jupiter buy/sell. Fees to your in-app Solana wallet."
             : robinhood
               ? "Pons v2. Tradable at create. Volume feeds the Uniswap v4 LP. Fees to your in-app RH wallet."
-              : "ArcPad on Arc. Fixed supply, tradable immediately, with locked liquidity. Fund the in-app wallet with USDC."}
+              : "Argus v4 on Arc. Fixed supply with a launch-specific hook, pool id, and locked liquidity position. Fund the in-app wallet with USDC."}
         </p>
         <div className="relative mt-5">
           <LaunchChainSwitch
