@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PIECE_EXPLAINER, AUTHOR_FEE_EXPLAINER } from "@onceupon/config/copy";
 import { findChain, SOLANA, type LaunchVenue } from "@onceupon/config/solana";
-import { ARC_TESTNET } from "@onceupon/config/arc";
+import { ARC_MAINNET } from "@onceupon/config/arc";
 import { PAD_NAME, PUMPFUN_CURVE_REFERENCE, feesForVenue, venueLabel } from "@onceupon/config/launchpad";
 import { catalogByCaip2, explorerUrlForPool } from "@onceupon/config/pools";
 import { notFound } from "next/navigation";
@@ -208,6 +208,9 @@ export default async function StoryPage({
   const snipeTax = Number((story as { snipe_tax_bps?: number | null }).snipe_tax_bps ?? 0);
   const venueFees = feesForVenue((story.venue as LaunchVenue) ?? "spl", story.engine);
   const jackets = await viewCardsForStory(slug).catch(() => []);
+  const isArgus = chain === "arc" && String(story.venue ?? "") === "argus-v4";
+  const quoteDecimals = Number(story.quote_decimals ?? (chain === "arc" ? 6 : 9));
+  const arcExplorer = ARC_MAINNET.explorer;
 
   return (
     <div className="space-y-8">
@@ -419,7 +422,7 @@ export default async function StoryPage({
                   className="break-all text-gold hover:underline"
                   href={
                     chain === "arc"
-                      ? `${ARC_TESTNET.explorer}/address/${story.token_address}`
+                      ? `${arcExplorer}/address/${story.token_address}`
                       : explorerAddress(story.token_address)
                   }
                   target="_blank"
@@ -434,7 +437,7 @@ export default async function StoryPage({
                 <a
                   className="text-gold hover:underline"
                   href={
-                    chain === "arc" ? `${ARC_TESTNET.explorer}/tx/${story.created_tx}` : explorerTx(story.created_tx)
+                    chain === "arc" ? `${arcExplorer}/tx/${story.created_tx}` : explorerTx(story.created_tx)
                   }
                   target="_blank"
                   rel="noreferrer"
@@ -444,17 +447,18 @@ export default async function StoryPage({
               </p>
             ) : null}
             <p>
-              Curve{" "}
-              {(Number(story.curve_quote_lamports ?? 0) / 10 ** Number(story.quote_decimals ?? 9)).toLocaleString(
+              {isArgus ? "Pool" : "Curve"}{" "}
+              {(Number(story.curve_quote_lamports ?? 0) / 10 ** quoteDecimals).toLocaleString(
                 "en-US",
                 { maximumFractionDigits: 4 },
               )}{" "}
               /{" "}
               {(
-                Number(story.graduation_quote_raw ?? SOLANA.bondingGraduationSol * 1_000_000_000) /
-                10 ** Number(story.quote_decimals ?? 9)
+                Number(story.graduation_quote_raw ?? (isArgus ? 45_000 * 1_000_000 : SOLANA.bondingGraduationSol * 1_000_000_000)) /
+                10 ** quoteDecimals
               ).toLocaleString("en-US")}{" "}
               {story.pair_label}
+              {isArgus ? " seed / bond FDV" : ""}
             </p>
           </CardContent>
         </Card>
@@ -478,13 +482,14 @@ export default async function StoryPage({
         <CardHeader>
           <CardTitle>Token</CardTitle>
           <CardDescription>
-            The bonding curve is the market from T0. Buyers pay USDC into the vault. Graduation opens the Arc pool from
-            those reserves. The creator does not seed an AMM at launch.
+            {isArgus
+              ? "Argus mints into a Uniswap v4 USDC pool in the launch transaction. The seed buy is the opening liquidity; trading stays on that pool id and hook."
+              : "The bonding curve is the market from T0. Buyers pay USDC into the vault. Graduation opens the Arc pool from those reserves. The creator does not seed an AMM at launch."}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-parchment/70">
           {chain === "arc" ? (
-            <p>Trade on the curve above. Quote is USDC on Arc.</p>
+            <p>{isArgus ? "Trade the Argus v4 USDC pool above. Seed liquidity is bought in the launch transaction." : "Trade on the curve above. Quote is USDC on Arc."}</p>
           ) : (
             <p>
               This token trades on {chainCard?.title ?? chain}&apos;s own market (pump.fun / PumpSwap for Solana),
@@ -499,14 +504,17 @@ export default async function StoryPage({
         <CardHeader>
           <CardTitle>The Binding</CardTitle>
           <CardDescription>
-            Graduation opens the Arc book from the vault. Binding an existing market is not this Story’s pool.
+            {isArgus
+              ? "The Argus Uniswap v4 pool is the market from T0. Liquidity is locked in the launch locker."
+              : "Graduation opens the Arc book from the vault. Binding an existing market is not this Story’s pool."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           {!bindings?.length ? (
             <p className="text-parchment/65">
-              No AMM yet. The Chapter is live against {story.pair_label}. That quote market is hop-1 routing, not this
-              mint’s pool. The book opens from the vault at graduation.
+              {isArgus
+                ? "The Argus pool id is recorded on the launch. Depth below updates once the seed buy is indexed."
+                : `No AMM yet. The Chapter is live against ${story.pair_label}. That quote market is hop-1 routing, not this mint’s pool. The book opens from the vault at graduation.`}
             </p>
           ) : (
             <ul className="space-y-2">

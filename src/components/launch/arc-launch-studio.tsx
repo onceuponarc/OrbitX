@@ -13,12 +13,14 @@ import {
   EMPTY_DESCRIPTION_LINKS,
   type DescriptionLinksValue,
 } from "@/components/launch/description-links-fields";
+import { DevFundBanner } from "@/components/wallet/dev-fund-banner";
 import { readApiJson } from "@/lib/http/read-json";
 
 export function ArcLaunchStudio({ handle, pairCard = false }: { handle: string | null; pairCard?: boolean }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [ticker, setTicker] = useState("");
+  const [seedUsdc, setSeedUsdc] = useState("10");
   const [links, setLinks] = useState<DescriptionLinksValue>({
     ...EMPTY_DESCRIPTION_LINKS,
     twitter: handle ? `@${handle}` : "",
@@ -45,11 +47,12 @@ export function ArcLaunchStudio({ handle, pairCard = false }: { handle: string |
           coverUrl: cover?.url,
           imageUri: cover?.imageUri,
           rightsAttested: rights,
+          seedUsdc,
         }),
       });
-      const body = await readApiJson<{ error?: string; slug?: string; hash?: string; token?: string }>(res);
+      const body = await readApiJson<{ error?: string; slug?: string; hash?: string; token?: string; seedUsdc?: number }>(res);
       if (!res.ok || !body.hash) throw new Error(body.error ?? "Arc launch failed.");
-      setStatus("Live on Argus. Your token, v4 pool id, hook, and locker are now recorded on Arc mainnet.");
+      setStatus(`Live on Argus with ${body.seedUsdc ?? seedUsdc} USDC seed liquidity.`);
       if (pairCard && body.slug) router.push(`/cards`); else if (body.slug) router.push(`/story/${body.slug}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Arc launch failed.");
@@ -61,8 +64,9 @@ export function ArcLaunchStudio({ handle, pairCard = false }: { handle: string |
       <section className="glass space-y-4 rounded-2xl border border-arc/20 p-4">
         <div><p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-arc">Arc mainnet · Argus</p>
           <h2 className="mt-1 text-2xl font-semibold">Launch on Argus</h2>
-          <p className="mt-2 text-sm text-parchment/65">A fixed-supply token opens immediately on Arc 5042 through Argus v4, with a per-token hook, pool id, and locked liquidity position.</p>
+          <p className="mt-2 text-sm text-parchment/65">A fixed-supply token opens immediately on Arc 5042 through Argus v4. The launch transaction buys USDC into the pool so it does not go live at $0 liquidity.</p>
         </div>
+        <DevFundBanner chain="arc" />
         <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Name</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} required /></div>
           <div className="space-y-2"><Label>Ticker</Label><Input value={ticker} maxLength={10} onChange={(e) => setTicker(e.target.value.toUpperCase())} required /></div></div>
         <DescriptionLinksFields value={links} onChange={setLinks} />
@@ -70,10 +74,20 @@ export function ArcLaunchStudio({ handle, pairCard = false }: { handle: string |
       </section>
       <section className="glass space-y-3 rounded-2xl border border-arc/20 p-4">
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-arc">Argus launch settings</p>
-        <p className="text-sm text-parchment/65">Argus creates a fixed-supply token, initializes a Uniswap v4 pool through its Portal, and records the locker, hook, and pool id. Your Arc wallet signs the transaction.</p>
-        <p className="text-xs text-parchment/45">This OrbitX flow uses Argus Portal #7 with Arc USDC, 3% buy/sell tax, and a fixed 1 billion token supply.</p>
+        <p className="text-sm text-parchment/65">Argus creates the token and a Uniswap v4 range. Without a USDC seed that range sits at $0 in-range liquidity. Your in-app Arc wallet pays gas and the seed buy in the same launch.</p>
+        <div className="space-y-2">
+          <Label>Seed liquidity (USDC)</Label>
+          <Input
+            value={seedUsdc}
+            onChange={(e) => setSeedUsdc(e.target.value)}
+            inputMode="decimal"
+            min={1}
+            required
+          />
+          <p className="text-xs text-parchment/45">Default 10 USDC. Start FDV $2,500 · bond $45,000 · 1 billion supply · 3% buy/sell tax.</p>
+        </div>
       </section>
-      <section className="glass space-y-4 rounded-2xl border border-arc/20 p-4"><p className="text-sm text-parchment/70">Your Arc wallet signs the Argus Portal transaction. The launch contract creates the token and its v4 liquidity position atomically.</p>
+      <section className="glass space-y-4 rounded-2xl border border-arc/20 p-4"><p className="text-sm text-parchment/70">Your Arc wallet signs the Argus Portal transaction. Fund it with the seed plus about 1 USDC for gas first.</p>
         <label className="flex items-start gap-3 text-sm"><Switch checked={rights} onCheckedChange={setRights} /><span>I have the rights to use this token name and artwork.</span></label>
         <Button type="submit" disabled={!rights || busy || !title || !ticker}>{busy ? status ?? "Launching…" : "Launch on Arc mainnet"}</Button>
         {error ? <Alert variant="destructive"><AlertTitle>Launch blocked</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}

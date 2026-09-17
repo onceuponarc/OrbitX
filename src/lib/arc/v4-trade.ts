@@ -10,12 +10,11 @@ import {
   type PublicClient,
   type WalletClient,
 } from "viem";
-import { ARGUS_PORTAL7, ARGUS_PORTAL7_ABI, ARC_USDC } from "@/lib/arc/argus";
+import { ARGUS_PORTAL7, ARGUS_PORTAL7_ABI, ARC_USDC, ARC_STATE_VIEW } from "@/lib/arc/argus";
 import { publicArc, requireArcNetwork } from "@/lib/arc/client";
 import { deskEvmWallet } from "@/lib/wallets/sign-desk";
 
 export const ARGUS_UNIVERSAL_ROUTER = "0x4fcA4a51Ab4F23A7447b3284fBd7D73289A89Fb1" as Address;
-export const ARC_STATE_VIEW = "0xF3334192D15450CdD385c8B70e03f9A6bD9E673b" as Address;
 export const PERMIT2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as Address;
 
 const STATE_VIEW_ABI = [{ type: "function", name: "getSlot0", stateMutability: "view", inputs: [{ name: "poolId", type: "bytes32" }], outputs: [{ name: "sqrtPriceX96", type: "uint160" }, { name: "tick", type: "int24" }, { name: "protocolFee", type: "uint24" }, { name: "lpFee", type: "uint24" }] }] as const;
