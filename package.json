@@ -21,6 +21,7 @@
     "check:read-json": "node --experimental-strip-types --no-warnings scripts/check-read-json.ts",
     "check:argus-hook": "node --experimental-strip-types --no-warnings scripts/check-argus-hook.ts",
     "check:argus-launch": "node --experimental-strip-types --no-warnings scripts/check-argus-launch.ts",
+    "check:agent-login": "node --experimental-strip-types --no-warnings scripts/check-agent-login.ts",
     "check:vanity-mint": "node --experimental-strip-types --no-warnings scripts/check-vanity-mint.ts",
     "check:pump-metadata": "node --experimental-strip-types --no-warnings scripts/check-pump-metadata.ts",
     "check:in-app-trade": "node --experimental-strip-types --no-warnings scripts/check-in-app-trade.ts",
