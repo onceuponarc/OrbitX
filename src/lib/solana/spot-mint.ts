@@ -22,7 +22,8 @@ import {
 } from "@solana/spl-token";
 import { protocolKeypair } from "@/lib/solana/keys";
 import { solanaConnection } from "@/lib/solana/connection";
-import { generateVanityMint, VANITY_SUFFIX } from "@/lib/solana/vanity";
+import { VANITY_SUFFIX } from "@/lib/solana/vanity";
+import { generateVanityMint } from "@/lib/solana/vanity-mine";
 
 export type SpotProgram = "spl" | "token2022";
 export type SpotMode = "direct" | "fair";
@@ -43,7 +44,7 @@ export async function buildSpotMintTx(input: {
   const decimals = 6;
   const supply = 1_000_000_000n * 10n ** BigInt(decimals);
   const taxBps = program === "token2022" ? Math.min(200, Math.max(0, Math.round(input.taxBps ?? 100))) : 0;
-  const minted = input.vanity === false ? { keypair: Keypair.generate(), vanity: false } : generateVanityMint(VANITY_SUFFIX);
+  const minted = input.vanity === false ? { keypair: Keypair.generate(), vanity: false } : await generateVanityMint(VANITY_SUFFIX);
   const mint = minted.keypair.publicKey;
   const protocol = protocolKeypair().publicKey;
   const extensions = [];

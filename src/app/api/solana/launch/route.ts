@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { resolveLaunchMint, VanityTimeoutError, VANITY_SUFFIX } from "@/lib/solana/vanity";
+import { VanityTimeoutError, VANITY_SUFFIX } from "@/lib/solana/vanity";
+import { resolveLaunchMint, vanityMintFromSecret } from "@/lib/solana/vanity-mine";
 import { buildCreateV2Tx, parseQuoteMintChoice, type PoolPairChoice } from "@/lib/solana/pump-sdk";
 import { sendSignedTx, waitForTx, explorerFromSig } from "@/lib/solana/partial-tx";
 import { fetchLatestBlockhash } from "@/lib/solana/blockhash";
@@ -15,6 +16,7 @@ const ORBITX_BRAND_LOGO = `${PUBLIC_SITE_URL}/brand/logo.jpg`;
 const ORBITX_BRAND_X = "https://x.com/orbitx_wrld";
 const ORBITX_BRAND_TELEGRAM = "https://t.me/orbitx_wrld";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
@@ -61,6 +63,7 @@ export async function POST(request: Request) {
       metadataUri?: string;
       coverUrl?: string;
       vanity?: boolean;
+      mintSecret?: string;
       poolPair?: PoolPairChoice;
       customQuoteMint?: string;
       mayhemMode?: boolean;
@@ -85,7 +88,8 @@ export async function POST(request: Request) {
     const payer = await deskSolanaKey(user.id);
     // Throws VanityTimeoutError if a vanity mint was requested and not found.
     // Nothing has been sent on-chain at this point, so that is a clean retry.
-    const minted = await resolveLaunchMint(body.vanity !== false);
+    const prepared = typeof body.mintSecret === "string" ? vanityMintFromSecret(body.mintSecret) : null;
+    const minted = prepared ?? (await resolveLaunchMint(body.vanity !== false));
     const mintAddress = minted.keypair.publicKey.toBase58();
     const metadataUri =
       body.metadataUri || `${PUBLIC_SITE_URL}/api/token/${mintAddress}/metadata`;
