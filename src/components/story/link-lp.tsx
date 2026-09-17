@@ -14,9 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { PoolPicker, type LinkedPoolPick } from "@/components/launch/pool-picker";
-import { SolanaConnectButton } from "@/components/wallet/connect-button";
-import { useWalletSigner } from "@/components/wallet/use-wallet-signer";
-import { fetchLaunchBlockhash } from "@/lib/solana/blockhash";
 import { readApiJson } from "@/lib/http/read-json";
 
 function quoteOptions(storyMint: string | null, pairLabel: string) {
@@ -65,7 +62,6 @@ export function LinkLp({
   graduationQuoteRaw?: string | number | null;
 }) {
   const router = useRouter();
-  const { address, signAndSend, ensureBound } = useWalletSigner();
   const listed = findQuoteByMint(quoteMint) ?? findQuote("sol");
   const quoteId = listed?.id ?? "sol";
   const quoteSymbol = listed?.symbol ?? pairLabel ?? "SOL";
@@ -130,12 +126,8 @@ export function LinkLp({
   }
 
   async function pairOnPumpSwap(fromVault: boolean) {
-    if (!address) {
-      setError("Connect a Solana wallet first.");
-      return;
-    }
     if (!tokenMint) {
-      setError("Mint is not on-chain yet. Finish sign-and-pay print first.");
+      setError("Mint is not on-chain yet. Finish print first.");
       return;
     }
     if (!fromVault) {
@@ -146,98 +138,30 @@ export function LinkLp({
     setError(null);
     setOk(null);
     try {
-      setStatus("Bind this wallet to your X account…");
-      const payer = await ensureBound();
-      setStatus("Fetching a Solana blockhash…");
-      const latest = await fetchLaunchBlockhash();
-      setStatus("Building vault-seeded PumpSwap…");
+      setStatus("Opening PumpSwap from your in-app Solana desk…");
       const res = await fetch(`/api/stories/${slug}/pair`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          payer,
           quoteMint,
           quoteUi: 0,
           baseBps: 10_000,
-          recentBlockhash: latest.blockhash,
           fromVault: true,
         }),
       });
       const body = await readApiJson<{
         error?: string;
         already?: boolean;
-        transactions?: string[];
-        transaction?: string;
-        pool?: string;
-        quoteMint?: string;
         explorer?: string;
         proofUrl?: string;
+        label?: string;
       }>(res);
       if (!res.ok) {
-        setError(body.error ?? "Could not build the PumpSwap pool.");
-        return;
-      }
-      if (!body.pool) {
-        setError("The pad did not return a pool address.");
-        return;
-      }
-      const txs =
-        Array.isArray(body.transactions) && body.transactions.length
-          ? body.transactions
-          : body.transaction
-            ? [body.transaction]
-            : [];
-      let sent = { signature: "", explorer: "" };
-      if (!body.already) {
-        if (!txs.length) {
-          setError("The pad did not return a transaction to sign and pay.");
-          return;
-        }
-        for (let i = 0; i < txs.length; i += 1) {
-          setStatus(
-            txs.length > 1
-              ? `Sign and pay transaction ${i + 1} of ${txs.length} in your wallet…`
-              : fromVault
-                ? "Sign and pay gas. Quote comes from the vault, not an extra deposit."
-                : "Sign and pay create_pool in your wallet. This spends gas and deposits quote.",
-          );
-          sent = await signAndSend(txs[i]);
-          if (i < txs.length - 1) {
-            setStatus("Waiting for the seed to land on Solana…");
-            const waitRes = await fetch(`/api/stories/${slug}/pair`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "wait", signature: sent.signature }),
-            });
-            const waited = await readApiJson<{ error?: string }>(waitRes);
-            if (!waitRes.ok) {
-              setError(waited.error ?? "Seed landed in the wallet but the pad could not confirm it. Retry.");
-              return;
-            }
-          }
-        }
-      }
-      setStatus("Confirming the PumpSwap pool…");
-      const confirm = await fetch(`/api/stories/${slug}/pair`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "confirm",
-          signature: sent.signature || "existing",
-          pool: body.pool,
-          quoteMint: body.quoteMint ?? pairQuote,
-        }),
-      });
-      const confirmed = await readApiJson<{ error?: string; explorer?: string; proofUrl?: string; label?: string }>(
-        confirm,
-      );
-      if (!confirm.ok) {
-        setError(confirmed.error ?? "Pool may have landed. Check the explorer, then refresh.");
-        setOk(body.proofUrl ?? sent.explorer);
+        setError(body.error ?? "Could not open the PumpSwap pool.");
         return;
       }
       setOk(
-        `${confirmed.label ?? "PumpSwap pool"} is on-chain. DexScreener and Jupiter index it from the pool account, not from a bind click.`,
+        `${body.label ?? "PumpSwap pool"} is on-chain. DexScreener and Jupiter index it from the pool account.`,
       );
       setStatus(null);
       router.refresh();
@@ -292,17 +216,10 @@ export function LinkLp({
         <div className="space-y-3 rounded-xl border border-arc/25 bg-arc/5 p-3">
           <p className="text-sm font-medium text-parchment">1 · Graduate the book from the vault</p>
           <p className="text-xs text-parchment/55">
-            Sign and pay gas. Remaining ${ticker} and {quoteSymbol} in the vault seed PumpSwap. You do not deposit extra
-            quote. Permissionless PumpSwap LP fee is 0.25% and protocol is 0.05%. That is not Pump.fun’s curve
-            schedule.
+            Gas is paid by your in-app Solana desk. Remaining ${ticker} and {quoteSymbol} in the vault seed PumpSwap.
+            You do not deposit extra quote.
           </p>
-          {!address ? (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-arc/20 bg-black/20 px-3 py-2">
-              <p className="text-sm text-parchment/70">Connect the wallet that will pay rent and gas.</p>
-              <SolanaConnectButton compact />
-            </div>
-          ) : null}
-          <Button type="button" disabled={busy || !tokenMint || !address} onClick={() => void pairOnPumpSwap(true)}>
+          <Button type="button" disabled={busy || !tokenMint} onClick={() => void pairOnPumpSwap(true)}>
             {busy ? status ?? "Signing…" : `Open $${ticker}/${quoteSymbol} from the vault`}
           </Button>
           {status && busy ? <p className="text-xs text-parchment/55">{status}</p> : null}

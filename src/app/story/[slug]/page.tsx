@@ -12,7 +12,6 @@ import Link from "next/link";
 import { explorerAddress, explorerTx } from "@/lib/solana/explorer";
 import { LaunchLinks } from "@/components/story/launch-links";
 import { LinkLp } from "@/components/story/link-lp";
-import { ArcTrade } from "@/components/arc/arc-trade";
 import { HoldersTable, StoryTape, type ChartTrade } from "@/components/story/market-panel";
 import { getLocalArcStory } from "@/lib/arc/store";
 import { LiveRefresh } from "@/components/pad/live-refresh";
@@ -292,6 +291,7 @@ export default async function StoryPage({
               curve={(story as { curve_address?: string | null }).curve_address ?? story.vault_address}
               symbol={story.ticker}
               quoteLabel="ETH"
+              signedIn={Boolean(profile)}
             />
           ) : (
             <div className="flex h-fit flex-col items-center justify-center gap-2 rounded-3xl border border-white/10 p-6 text-center text-sm text-white/45">
@@ -330,6 +330,7 @@ export default async function StoryPage({
                     token={story.token_address}
                     symbol={story.ticker}
                     quoteLabel="USDC"
+                    signedIn={Boolean(profile)}
                   />
                 ) : <p className="text-sm text-parchment/70">This token has no recorded address.</p>}
                 {story.token_address ? (

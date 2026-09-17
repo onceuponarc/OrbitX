@@ -17,7 +17,7 @@ import { solanaConnection } from "@/lib/solana/connection";
 import { openKeypair } from "@/lib/solana/keys";
 import { serializePartialTx, waitForTx } from "@/lib/solana/partial-tx";
 import { explorerAddress, explorerTx } from "@/lib/solana/explorer";
-import { assertPayer } from "@/lib/wallets/bound";
+import { deskSolanaKey } from "@/lib/wallets/sign-desk";
 import {
   inspectMint,
   pushCreateAtaIfMissing,
@@ -123,7 +123,7 @@ async function serializePairTx(
 export async function buildPumpSwapPair(opts: {
   userId: string;
   slug: string;
-  payer: string | undefined;
+  payer?: string;
   quoteMint?: string | null;
   quoteUi: number;
   baseBps?: number;
@@ -148,7 +148,7 @@ export async function buildPumpSwapPair(opts: {
     }
   }
 
-  const payer = await assertPayer(opts.userId, opts.payer);
+  const payer = (await deskSolanaKey(opts.userId)).publicKey;
   const baseMint = new PublicKey(story.token_address);
   const quoteMint = parseMintAddress(opts.quoteMint ?? story.quote_mint, NATIVE_MINT);
   if (quoteMint.equals(baseMint)) {
