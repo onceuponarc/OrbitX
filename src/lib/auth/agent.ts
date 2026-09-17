@@ -34,6 +34,7 @@ export async function ensureAgentAccount(code: string) {
     preferred_username: AGENT_HANDLE,
     full_name: "OrbitX Agent",
     name: "OrbitX Agent",
+    provider_id: `agent:${AGENT_HANDLE}`,
   };
 
   let userId: string | null = null;
@@ -56,17 +57,29 @@ export async function ensureAgentAccount(code: string) {
     if (updated.error) throw new Error(updated.error.message);
   }
 
-  const profile = await service.from("users").update({
+  const patch = {
     handle: AGENT_HANDLE,
     display_name: "OrbitX Agent",
     bio: "Operator desk for launch tests.",
     is_staff: true,
-  }).eq("id", userId);
+  };
+  const profile = await service.from("users").update(patch).eq("id", userId);
   if (profile.error) {
     await service.from("users").update({
       display_name: "OrbitX Agent",
       is_staff: true,
     }).eq("id", userId);
+  }
+  const existing = await service.from("users").select("id").eq("id", userId).maybeSingle();
+  if (!existing.data?.id) {
+    await service.from("users").insert({
+      id: userId,
+      x_user_id: `agent:${AGENT_HANDLE}`,
+      handle: AGENT_HANDLE,
+      display_name: "OrbitX Agent",
+      bio: "Operator desk for launch tests.",
+      is_staff: true,
+    });
   }
 
   const desk = await ensureDeskWallets(userId);
