@@ -4,6 +4,7 @@ import { deskEvmWallet } from "@/lib/wallets/sign-desk";
 import { launchWithArgus } from "@/lib/arc/argus";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
+import { httpImageUrl } from "@/lib/media/token-json";
 import { createPublicClient, http } from "viem";
 
 export const runtime = "nodejs";
@@ -14,12 +15,22 @@ function slugify(input: string) {
   return input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
 }
 
+function normalizeUrl(raw: string | undefined | null, kind: "website" | "twitter" | "telegram") {
+  const value = (raw ?? "").trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  if (kind === "twitter") return `https://x.com/${value.replace(/^@/, "")}`;
+  if (kind === "telegram") return `https://t.me/${value.replace(/^@/, "")}`;
+  return `https://${value}`;
+}
+
 export async function POST(request: Request) {
   try {
     const { profile, user } = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Sign in before launching." }, { status: 401 });
     const body = (await request.json()) as {
-      title?: string; ticker?: string; blurb?: string; coverUrl?: string | null;
+      title?: string; ticker?: string; blurb?: string; coverUrl?: string | null; imageUri?: string | null;
+      website?: string | null; twitter?: string | null; telegram?: string | null;
       rightsAttested?: boolean;
     };
     const title = (body.title ?? "").trim();
@@ -29,11 +40,15 @@ export async function POST(request: Request) {
     // Arc launches use Argus Portal #7's verified v4 launch contract on Arc mainnet.
     const { wallet, address } = await deskEvmWallet(user.id);
     const pub = createPublicClient({ chain: wallet.chain, transport: http(wallet.chain.rpcUrls.default.http[0]) });
-    const website = process.env.NEXT_PUBLIC_SITE_URL || PUBLIC_SITE_URL;
+    const twitter = normalizeUrl(body.twitter, "twitter") || (profile?.handle ? `https://x.com/${profile.handle}` : "");
+    const website = normalizeUrl(body.website, "website") || process.env.NEXT_PUBLIC_SITE_URL || PUBLIC_SITE_URL;
+    const telegram = normalizeUrl(body.telegram, "telegram");
+    const logo = body.imageUri || body.coverUrl ? httpImageUrl(body.imageUri, body.coverUrl) : undefined;
     const result = await launchWithArgus({
       name: title, symbol: ticker, creator: address,
-      logo: body.coverUrl || undefined,
-      twitter: profile?.handle ? `https://x.com/${profile.handle}` : undefined,
+      logo,
+      twitter: twitter || undefined,
+      telegram: telegram || undefined,
       website, blurb: body.blurb ?? undefined, wallet, pub,
     });
     const slug = `${slugify(title) || slugify(ticker) || "token"}-${Math.random().toString(36).slice(2, 6)}`;
@@ -41,8 +56,8 @@ export async function POST(request: Request) {
       const supabase = createServiceClient();
       await supabase.from("stories").insert({
         slug, title, ticker, blurb: body.blurb ?? "Launched on OrbitX",
-        cover_url: body.coverUrl ?? null, image_uri: body.coverUrl ?? null,
-        website_url: website, twitter_url: profile?.handle ? `https://x.com/${profile.handle}` : null,
+        cover_url: body.coverUrl ?? logo ?? null, image_uri: logo ?? body.coverUrl ?? null,
+        website_url: website, twitter_url: twitter || null, telegram_url: telegram || null,
         author_user_id: user.id, author_wallet: address, engine: "author", status: "live",
         author_bps: 0, chain: "arc", venue: "argus-v4", pair_class: "other",
         pair_label: "USDC",

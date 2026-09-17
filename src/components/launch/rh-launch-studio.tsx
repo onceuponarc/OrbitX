@@ -39,6 +39,7 @@ export function RhLaunchStudio({ handle }: { handle: string | null }) {
           name,
           symbol,
           coverUrl: cover?.url,
+          imageUri: cover?.imageUri,
           handle,
           description: links.description,
           website: links.website,

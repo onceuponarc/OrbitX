@@ -5,17 +5,24 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CoverField, type CoverPick } from "@/components/launch/cover-field";
+import {
+  DescriptionLinksFields,
+  EMPTY_DESCRIPTION_LINKS,
+  type DescriptionLinksValue,
+} from "@/components/launch/description-links-fields";
 import { readApiJson } from "@/lib/http/read-json";
 
 export function ArcLaunchStudio({ handle, pairCard = false }: { handle: string | null; pairCard?: boolean }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [ticker, setTicker] = useState("");
-  const [blurb, setBlurb] = useState("");
+  const [links, setLinks] = useState<DescriptionLinksValue>({
+    ...EMPTY_DESCRIPTION_LINKS,
+    twitter: handle ? `@${handle}` : "",
+  });
   const [cover, setCover] = useState<CoverPick | null>(null);
   const [rights, setRights] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -28,7 +35,17 @@ export function ArcLaunchStudio({ handle, pairCard = false }: { handle: string |
     try {
       const res = await fetch("/api/arc/launch", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, ticker, blurb, coverUrl: cover?.url, rightsAttested: rights }),
+        body: JSON.stringify({
+          title,
+          ticker,
+          blurb: links.description,
+          website: links.website,
+          twitter: links.twitter,
+          telegram: links.telegram,
+          coverUrl: cover?.url,
+          imageUri: cover?.imageUri,
+          rightsAttested: rights,
+        }),
       });
       const body = await readApiJson<{ error?: string; slug?: string; hash?: string; token?: string }>(res);
       if (!res.ok || !body.hash) throw new Error(body.error ?? "Arc launch failed.");
@@ -48,7 +65,7 @@ export function ArcLaunchStudio({ handle, pairCard = false }: { handle: string |
         </div>
         <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label>Name</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} required /></div>
           <div className="space-y-2"><Label>Ticker</Label><Input value={ticker} maxLength={10} onChange={(e) => setTicker(e.target.value.toUpperCase())} required /></div></div>
-        <div className="space-y-2"><Label>Pitch</Label><Textarea value={blurb} onChange={(e) => setBlurb(e.target.value)} rows={3} /></div>
+        <DescriptionLinksFields value={links} onChange={setLinks} />
         <CoverField value={cover} onChange={setCover} />
       </section>
       <section className="glass space-y-3 rounded-2xl border border-arc/20 p-4">

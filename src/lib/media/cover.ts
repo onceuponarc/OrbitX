@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServiceClient } from "@/lib/supabase/service";
 import { parseIpfsInput } from "@/lib/media/ipfs";
+import { pinBytes } from "@/lib/media/pin";
 
 const MAX_BYTES = 4_500_000;
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
@@ -20,51 +21,6 @@ function extFor(type: string) {
   return "jpg";
 }
 
-async function pinToIpfs(bytes: Buffer, filename: string, contentType: string): Promise<{ cid: string } | null> {
-  const pinata = process.env.PINATA_JWT?.trim();
-  if (pinata) {
-    try {
-      const body = new FormData();
-      body.append("file", new Blob([new Uint8Array(bytes)], { type: contentType }), filename);
-      body.append("pinataMetadata", JSON.stringify({ name: filename }));
-      const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${pinata}` },
-        body,
-        signal: AbortSignal.timeout(20_000),
-      });
-      if (!res.ok) return null;
-      const json = (await res.json()) as { IpfsHash?: string };
-      if (json.IpfsHash) return { cid: json.IpfsHash };
-    } catch {
-      return null;
-    }
-  }
-
-  const nftStorage = process.env.NFT_STORAGE_TOKEN?.trim();
-  if (nftStorage) {
-    try {
-      const res = await fetch("https://api.nft.storage/upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${nftStorage}`,
-          "Content-Type": contentType,
-        },
-        body: new Uint8Array(bytes),
-        signal: AbortSignal.timeout(20_000),
-      });
-      if (!res.ok) return null;
-      const json = (await res.json()) as { value?: { cid?: string }; ok?: boolean };
-      const cid = json.value?.cid;
-      if (cid) return { cid };
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-}
-
 export async function storeCover(userId: string, file: File): Promise<CoverResult> {
   if (!ALLOWED.has(file.type)) throw new Error("Use a PNG, JPEG, WebP, or GIF.");
   if (file.size <= 0 || file.size > MAX_BYTES) throw new Error("Image must be under 4.5 MB.");
@@ -77,11 +33,11 @@ export async function storeCover(userId: string, file: File): Promise<CoverResul
   });
   if (error) throw new Error(error.message);
   const { data } = service.storage.from("covers").getPublicUrl(filename);
-  const pinned = await pinToIpfs(bytes, filename.split("/").pop() ?? "cover.png", file.type);
+  const pinned = await pinBytes(bytes, filename.split("/").pop() ?? "cover.png", file.type);
   if (pinned) {
     return {
-      url: `https://ipfs.io/ipfs/${pinned.cid}`,
-      imageUri: `ipfs://${pinned.cid}`,
+      url: pinned.gatewayUrl,
+      imageUri: pinned.uri,
       cid: pinned.cid,
       storage: "ipfs",
     };
