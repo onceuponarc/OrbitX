@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { deskEvmWallet } from "@/lib/wallets/sign-desk";
-import { launchWithArgus } from "@/lib/arc/argus";
+import { ARC_USDC, ARGUS_BOND_FDV_USDC6, launchWithArgus } from "@/lib/arc/argus";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 import { httpImageUrl } from "@/lib/media/token-json";
@@ -31,13 +31,12 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       title?: string; ticker?: string; blurb?: string; coverUrl?: string | null; imageUri?: string | null;
       website?: string | null; twitter?: string | null; telegram?: string | null;
-      rightsAttested?: boolean;
+      rightsAttested?: boolean; seedUsdc?: number | string | null;
     };
     const title = (body.title ?? "").trim();
     const ticker = (body.ticker ?? "").trim().toUpperCase();
     if (!title || !ticker) return NextResponse.json({ error: "Name and ticker are required." }, { status: 400 });
     if (!body.rightsAttested) return NextResponse.json({ error: "Attest you have the rights to the art and name." }, { status: 400 });
-    // Arc launches use Argus Portal #7's verified v4 launch contract on Arc mainnet.
     const { wallet, address } = await deskEvmWallet(user.id);
     const pub = createPublicClient({ chain: wallet.chain, transport: http(wallet.chain.rpcUrls.default.http[0]) });
     const twitter = normalizeUrl(body.twitter, "twitter") || (profile?.handle ? `https://x.com/${profile.handle}` : "");
@@ -50,25 +49,47 @@ export async function POST(request: Request) {
       twitter: twitter || undefined,
       telegram: telegram || undefined,
       website, blurb: body.blurb ?? undefined, wallet, pub,
+      seedUsdc: body.seedUsdc,
     });
     const slug = `${slugify(title) || slugify(ticker) || "token"}-${Math.random().toString(36).slice(2, 6)}`;
     try {
       const supabase = createServiceClient();
-      await supabase.from("stories").insert({
+      const inserted = await supabase.from("stories").insert({
         slug, title, ticker, blurb: body.blurb ?? "Launched on OrbitX",
         cover_url: body.coverUrl ?? logo ?? null, image_uri: logo ?? body.coverUrl ?? null,
         website_url: website, twitter_url: twitter || null, telegram_url: telegram || null,
         author_user_id: user.id, author_wallet: address, engine: "author", status: "live",
-        author_bps: 0, chain: "arc", venue: "argus-v4", pair_class: "other",
-        pair_label: "USDC",
-        mint_decimals: 18, token_address: result.token, vault_address: result.hook, linked_pool_address: result.poolId, linked_pool_dex: "uniswap-v4", linked_pool_label: "Argus v4 PoolManager", created_tx: result.hash,
-      });
+        author_bps: 0, chain: "arc", venue: "argus-v4", pair_class: "usdc",
+        pair_label: "USDC", quote_mint: ARC_USDC, quote_address: ARC_USDC,
+        mint_decimals: 18, quote_decimals: 6, supply: result.supply,
+        token_address: result.token, vault_address: result.hook,
+        linked_pool_address: result.poolId, linked_pool_dex: "uniswap-v4",
+        linked_pool_label: "Argus v4 PoolManager", created_tx: result.hash,
+        curve_quote_lamports: result.seedUsdc6,
+        graduation_quote_raw: ARGUS_BOND_FDV_USDC6.toString(),
+      }).select("id").single();
+      const storyId = inserted.data?.id;
+      if (storyId) {
+        await supabase.from("bindings").insert({
+          story_id: storyId,
+          kind: "amm_v3",
+          is_primary: true,
+          chain_caip2: "eip155:5042",
+          pool_address: result.poolId,
+          quote_address: ARC_USDC,
+          mechanism: "uniswap_v4",
+          proof_url: result.explorer,
+          depth_usd: result.seedUsdc,
+          created_tx: result.hash,
+          verified_at: new Date().toISOString(),
+        });
+      }
     } catch (insertError) {
       console.error("Argus launch: stories insert failed", insertError);
     }
     return NextResponse.json({
       ...result, slug, creator: address, venue: "argus-v4-arc-mainnet", chainId: 5042,
-      note: "Argus Portal #7 v4 launch confirmed on Arc mainnet with per-token hook, pool id, and locker recorded.",
+      note: `Argus Portal #7 v4 launch confirmed with ${result.seedUsdc} USDC seed liquidity.`,
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Arc launch failed." }, { status: 400 });

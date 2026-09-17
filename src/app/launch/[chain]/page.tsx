@@ -1,4 +1,3 @@
-import { LaunchStudio } from "@/components/launch/launch-studio";
 import { SolanaLaunchStudio } from "@/components/launch/solana-launch-studio";
 import { RhLaunchStudio } from "@/components/launch/rh-launch-studio";
 import { ArcLaunchStudio } from "@/components/launch/arc-launch-studio";
@@ -46,7 +45,7 @@ export default async function LaunchChainPage({ params }: Props) {
             ? "pump.fun. Tradable at create. Jupiter buy/sell. Fees to your in-app Solana wallet."
             : robinhood
               ? "Pons v2. Tradable at create. Volume feeds the Uniswap v4 LP. Fees to your in-app RH wallet."
-              : "Argus v4 on Arc. Fixed supply with a launch-specific hook, pool id, and locked liquidity position. Fund the in-app wallet with USDC."}
+              : "Argus v4 on Arc. The launch transaction seeds the Uniswap v4 USDC pool so it does not go live at $0 liquidity. Fund the in-app wallet with the seed plus gas."}
         </p>
         <div className="relative mt-5">
           <LaunchChainSwitch

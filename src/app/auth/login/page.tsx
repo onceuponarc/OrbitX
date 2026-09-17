@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { XMark } from "@/components/x-mark";
 import Link from "next/link";
+import { AgentCodeForm } from "@/components/auth/agent-code-form";
 
 export const metadata = { title: "Sign in with X" };
 
@@ -25,6 +26,7 @@ export default function LoginPage() {
             <Link href="/">Back to the pad</Link>
           </Button>
         </div>
+        <AgentCodeForm />
         <p className="mt-6 text-center text-xs text-parchment/45">No email signup. No password.</p>
       </div>
     </div>

@@ -4,12 +4,18 @@ export function DexScreenerEmbed({ chain, tokenAddress }: { chain: string; token
     const explorer =
       chain === "robinhood"
         ? `https://explorer.robinhood.com/address/${tokenAddress}`
-        : `https://solscan.io/token/${tokenAddress}`;
+        : chain === "arc"
+          ? `https://www.geckoterminal.com/arc/tokens/${tokenAddress}`
+          : `https://solscan.io/token/${tokenAddress}`;
     return (
       <div className="flex h-[420px] flex-col items-center justify-center gap-3 rounded-3xl border border-white/10 text-sm text-white/50">
-        <p>DexScreener doesn&apos;t index this chain yet.</p>
+        <p>
+          {chain === "arc"
+            ? "DexScreener does not index Arc yet. Liquidity is the Argus Uniswap v4 USDC pool."
+            : "DexScreener doesn't index this chain yet."}
+        </p>
         <a href={explorer} target="_blank" rel="noreferrer" className="underline">
-          View on the chain explorer
+          {chain === "arc" ? "View on GeckoTerminal" : "View on the chain explorer"}
         </a>
       </div>
     );

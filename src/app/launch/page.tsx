@@ -7,7 +7,7 @@ const LANES = [
     href: "/launch/arc",
     label: "Arc",
     status: "Argus · live",
-    body: "Fixed-supply launch through Argus v4 with a per-token hook, pool id, and locked liquidity position. Fund the in-app Arc wallet with USDC.",
+    body: "Fixed-supply Argus v4 launch. The in-app wallet seeds the Uniswap v4 USDC pool in the same transaction so it does not open at $0 liquidity.",
     beta: true,
   },
   {
