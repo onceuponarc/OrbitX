@@ -10,7 +10,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { solanaConnection, explorerTx } from "@/lib/solana/connection";
 import { openKeypair, protocolKeypair } from "@/lib/solana/keys";
 import { serializePartialTx } from "@/lib/solana/partial-tx";
-import { assertPayer, getBoundSolanaWallet } from "@/lib/wallets/bound";
+import { deskSolanaKey } from "@/lib/wallets/sign-desk";
 import {
   chapterFeeBps,
   isChapterCurve,
@@ -141,12 +141,12 @@ function snipeBps(story: StoryRow): number {
   return Number(story.snipe_tax_bps ?? 0);
 }
 
-export async function buyOnCurve(userId: string, slug: string, amountUi: number, payerAddress?: string) {
+export async function buyOnCurve(userId: string, slug: string, amountUi: number) {
   const story = await loadStory(slug);
   if (story.venue === "nft") throw new Error("NFTs do not trade on the curve.");
   if (story.status !== "live" && story.status !== "graduated") throw new Error("This launch is not trading.");
 
-  const payer = await assertPayer(userId, payerAddress);
+  const payer = (await deskSolanaKey(userId)).publicKey;
   const meta = quoteMeta(story);
   const chapter = chapterFromStory(story, meta.graduation);
   if (chapter && story.status === "graduated") {
@@ -292,13 +292,12 @@ export async function sellOnCurve(
   slug: string,
   tokenUi: number,
   decimals: number,
-  payerAddress?: string,
 ) {
   if (tokenUi <= 0) throw new Error("Sell size must be positive.");
   const story = await loadStory(slug);
   if (story.venue === "nft") throw new Error("NFTs do not trade on the curve.");
 
-  const payer = await assertPayer(userId, payerAddress);
+  const payer = (await deskSolanaKey(userId)).publicKey;
   const meta = quoteMeta(story);
   const chapter = chapterFromStory(story, meta.graduation);
   if (chapter && story.status === "graduated") {
@@ -429,7 +428,7 @@ export async function sellOnCurve(
   };
 }
 
-export async function fundHolderRewards(userId: string, slug: string, amountUi: number, payerAddress?: string) {
+export async function fundHolderRewards(userId: string, slug: string, amountUi: number) {
   const story = await loadStory(slug);
   if (story.engine !== "onceuponers") {
     throw new Error("Creator-fee launches pay you on every trade. There is no holder pool to fund.");
@@ -442,7 +441,7 @@ export async function fundHolderRewards(userId: string, slug: string, amountUi: 
   }
   const amount = uiToRaw(amountUi, meta.decimals);
   if (amount <= 0n) throw new Error("Deposit rounds to zero.");
-  const payer = await assertPayer(userId, payerAddress);
+  const payer = (await deskSolanaKey(userId)).publicKey;
   const curve = await loadCurve(story.id);
   const tx = new Transaction();
   if (!meta.mint) {
@@ -480,14 +479,14 @@ export async function fundHolderRewards(userId: string, slug: string, amountUi: 
   };
 }
 
-export async function claimPiece(userId: string, slug: string, payerAddress?: string) {
+export async function claimPiece(userId: string, slug: string) {
   const story = await loadStory(slug);
   if (story.engine !== "onceuponers") throw new Error("Creator-fee launches push fees. There is nothing to claim.");
   const reward = BigInt(story.reward_vault_lamports);
   if (reward <= 0n) throw new Error("The author has not funded holder claims yet.");
   const meta = quoteMeta(story);
 
-  const payer = await assertPayer(userId, payerAddress);
+  const payer = (await deskSolanaKey(userId)).publicKey;
   const curve = await loadCurve(story.id);
   const mint = new PublicKey(story.token_address);
   const connection = solanaConnection();
@@ -552,10 +551,7 @@ export async function confirmCurveTrade(
   const story = await loadStory(slug);
   const meta = quoteMeta(story);
   const service = createServiceClient();
-  const bound = await getBoundSolanaWallet(userId);
-  const trader = payerAddress
-    ? (await assertPayer(userId, payerAddress)).toBase58()
-    : bound ?? story.author_wallet;
+  const trader = payerAddress?.trim() || (await deskSolanaKey(userId)).publicKey.toBase58();
 
   if (side === "buy") {
     const quoteIn = uiToRaw(amountUi, meta.decimals);

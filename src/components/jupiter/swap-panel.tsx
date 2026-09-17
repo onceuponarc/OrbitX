@@ -9,8 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { XMark } from "@/components/x-mark";
-import { SolanaConnectButton } from "@/components/wallet/connect-button";
-import { useWalletSigner } from "@/components/wallet/use-wallet-signer";
+import { readApiJson } from "@/lib/http/read-json";
 import type { JupiterQuote } from "@/lib/jupiter";
 
 const SWAP_TOKENS = [
@@ -42,7 +41,6 @@ export function JupiterSwapPanel({
   extraDecimals?: number;
   defaultOutput?: string;
 }) {
-  const { address, signAndSend, ensureBound } = useWalletSigner();
   const tokens = useMemo(() => {
     const list = [...SWAP_TOKENS];
     if (extraMint && extraSymbol && !list.some((item) => item.mint === extraMint)) {
@@ -100,8 +98,8 @@ export function JupiterSwapPanel({
   }
 
   async function swap() {
-    if (!address) {
-      setError("Connect a Solana wallet to swap.");
+    if (!signedIn) {
+      setError("Sign in with X first. Swaps use your in-app Solana desk.");
       return;
     }
     if (!rawQuote) {
@@ -112,17 +110,15 @@ export function JupiterSwapPanel({
     setError(null);
     setStatus(null);
     try {
-      await ensureBound();
-      const res = await fetch("/api/jupiter/swap", {
+      setStatus("Signing with your in-app Solana desk…");
+      const res = await fetch("/api/jupiter/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quoteResponse: rawQuote, userPublicKey: address }),
+        body: JSON.stringify({ quoteResponse: rawQuote }),
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Jupiter could not build the swap.");
-      setStatus("Sign and pay the swap in your wallet…");
-      const sent = await signAndSend(body.swapTransaction, true);
-      setStatus(`Landed ${sent.signature}`);
+      const body = await readApiJson<{ error?: string; signature?: string }>(res);
+      if (!res.ok || !body.signature) throw new Error(body.error ?? "Jupiter could not land the swap.");
+      setStatus(`Landed ${body.signature}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Swap failed.");
     } finally {
@@ -136,7 +132,7 @@ export function JupiterSwapPanel({
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-arc">{title}</p>
         <h2 className="font-heading text-xl font-bold">Route through Jupiter</h2>
         <p className="mt-1 text-sm text-parchment/65">
-          Quotes come from Jupiter. Your connected Solana wallet signs the swap. Pair SOL, cbBTC, stocks, memes, or any mint.
+          Quotes come from Jupiter. Your in-app Solana desk signs the swap. Pair SOL, cbBTC, stocks, memes, or any mint.
         </p>
       </div>
 
@@ -179,21 +175,18 @@ export function JupiterSwapPanel({
         <Button type="button" onClick={() => void loadQuote()} disabled={busy}>
           {busy && !quote ? "Routing…" : "Get Jupiter route"}
         </Button>
-        {address ? (
+        {signedIn ? (
           <Button type="button" variant="secondary" onClick={() => void swap()} disabled={busy || !quote}>
-            Swap in wallet
+            Swap from desk
           </Button>
         ) : (
-          <SolanaConnectButton />
-        )}
-        {!signedIn ? (
           <Button type="button" variant="ghost" asChild>
             <a href="/auth/login">
               <XMark className="size-3.5" />
               Sign in with X
             </a>
           </Button>
-        ) : null}
+        )}
         <Button type="button" variant="ghost" asChild>
           <a href={JUPITER.app} target="_blank" rel="noreferrer">
             Open jup.ag

@@ -91,7 +91,7 @@ export const CHAINS: ChainCard[] = [
     live: true,
     prints: true,
     badge: "Pump.fun · vanity",
-    body: "Print on pump.fun from OrbitX. Image to IPFS. Custom …obx mint. You sign in Phantom. Creator fees stay yours to claim.",
+    body: "Print on pump.fun from OrbitX. Image to IPFS. Custom …obx mint. Your in-app Solana desk signs. Creator fees stay yours to claim.",
     caip2: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
     accent: "from-[#22d3ee]/45 to-[#ffffff]/10",
     printNote: "Pump.fun curve. OrbitX metadata on every mint. Vanity suffix obx.",

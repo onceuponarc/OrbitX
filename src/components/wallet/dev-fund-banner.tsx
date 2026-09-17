@@ -36,7 +36,7 @@ export function DevFundBanner({ chain }: { chain: "arc" | "solana" | "rh" }) {
     <section className="rounded-2xl border border-white/10 p-4">
       <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/40">In-app dev wallet</p>
       <p className="mt-2 text-sm text-white/60">
-        Do not connect Phantom or MetaMask to launch. This account already has a wallet. Send{" "}
+        Do not connect Phantom or MetaMask. This account already has a wallet. Send{" "}
         {chain === "solana" ? "SOL" : chain === "rh" ? "ETH on Robinhood Chain" : "USDC on Arc"} to it. That
         balance pays gas and is the address that receives
         trading fees.

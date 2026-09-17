@@ -11,7 +11,8 @@ import {
   type WalletClient,
 } from "viem";
 import { ARGUS_PORTAL7, ARGUS_PORTAL7_ABI, ARC_USDC } from "@/lib/arc/argus";
-import { publicArc, requireArcNetwork, traderWallet } from "@/lib/arc/client";
+import { publicArc, requireArcNetwork } from "@/lib/arc/client";
+import { deskEvmWallet } from "@/lib/wallets/sign-desk";
 
 export const ARGUS_UNIVERSAL_ROUTER = "0x4fcA4a51Ab4F23A7447b3284fBd7D73289A89Fb1" as Address;
 export const ARC_STATE_VIEW = "0xF3334192D15450CdD385c8B70e03f9A6bD9E673b" as Address;
@@ -69,10 +70,10 @@ async function approvePermit2(pub: PublicClient, wallet: WalletClient, token: Ad
   await pub.waitForTransactionReceipt({ hash });
 }
 
-export async function tradeArcV4(input: { token: Address; side: "buy" | "sell"; amountUi: string }) {
+export async function tradeArcV4(input: { userId: string; token: Address; side: "buy" | "sell"; amountUi: string }) {
   const net = requireArcNetwork();
   const pub = publicArc(net);
-  const wallet = traderWallet(net);
+  const { wallet } = await deskEvmWallet(input.userId);
   const account = wallet.account;
   if (!account) throw new Error("Arc signer is unavailable.");
   const amountIn = parseUnits(input.amountUi, input.side === "buy" ? 6 : 18);

@@ -1,15 +1,17 @@
 import "server-only";
 
+import { Transaction, VersionedTransaction } from "@solana/web3.js";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { loadArcNetwork } from "@/lib/arc/env";
 import { arcChain } from "@/lib/arc/client";
 import { exportDeskSecret, ensureDeskWallets } from "@/lib/wallets/multi";
 import { loadUserKeypair } from "@/lib/wallets/embedded";
+import { explorerFromSig, sendSignedTx, waitForTx } from "@/lib/solana/partial-tx";
 
 export async function deskEvmWallet(userId: string) {
   await ensureDeskWallets(userId);
-  const { secret, address } = await exportDeskSecret(userId, "eth");
+  const { secret } = await exportDeskSecret(userId, "eth");
   const pk = (secret.startsWith("0x") ? secret : `0x${secret}`) as `0x${string}`;
   const account = privateKeyToAccount(pk);
   const net = loadArcNetwork();
@@ -25,6 +27,26 @@ export async function deskEvmWallet(userId: string) {
 export async function deskSolanaKey(userId: string) {
   await ensureDeskWallets(userId);
   return loadUserKeypair(userId);
+}
+
+/** Sign a desk-built Solana tx with the in-app key and land it. Never asks a browser wallet. */
+export async function signAndSendDeskTx(userId: string, transactionBase64: string, versioned = false) {
+  const key = await deskSolanaKey(userId);
+  const bytes = Buffer.from(transactionBase64, "base64");
+  const signed = versioned
+    ? (() => {
+        const tx = VersionedTransaction.deserialize(bytes);
+        tx.sign([key]);
+        return Buffer.from(tx.serialize()).toString("base64");
+      })()
+    : (() => {
+        const tx = Transaction.from(bytes);
+        tx.partialSign(key);
+        return tx.serialize().toString("base64");
+      })();
+  const signature = await sendSignedTx(signed);
+  await waitForTx(signature);
+  return { signature, explorer: explorerFromSig(signature), payer: key.publicKey.toBase58() };
 }
 
 export { exportDeskSecret };

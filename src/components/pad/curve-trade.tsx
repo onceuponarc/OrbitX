@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { SolanaConnectButton } from "@/components/wallet/connect-button";
-import { useWalletSigner } from "@/components/wallet/use-wallet-signer";
 import { readApiJson } from "@/lib/http/read-json";
 import { defaultCurveBuyUi } from "@onceupon/config/quotes";
 import { pingMarket } from "@/lib/live-market";
@@ -31,7 +29,6 @@ export function CurveTrade({
   isAuthor?: boolean;
   vaultRaw?: number;
 }) {
-  const { address, signAndSend, ensureBound } = useWalletSigner();
   const router = useRouter();
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState(defaultCurveBuyUi(pairLabel));
@@ -49,49 +46,22 @@ export function CurveTrade({
   }
 
   async function submit(action: "buy" | "sell" | "claim" | "fund") {
-    if (!address) {
-      setError("Connect a Solana wallet first.");
-      return;
-    }
     setBusy(true);
     setError(null);
     setResult(null);
     try {
-      const payer = await ensureBound();
       const value = action === "fund" ? Number(fundAmount) : Number(amount);
       const res = await fetch(`/api/stories/${slug}/trade`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, amount: value, payer }),
+        body: JSON.stringify({ action, amount: value }),
       });
-      const body = await readApiJson<{ error?: string; transaction?: string }>(res);
+      const body = await readApiJson<{ error?: string; explorer?: string }>(res);
       if (!res.ok) {
         setError(body.error ?? "Trade failed.");
         return;
       }
-      if (!body.transaction) {
-        setError("The pad did not return a transaction to sign.");
-        return;
-      }
-      const sent = await signAndSend(body.transaction);
-      const confirm = await fetch(`/api/stories/${slug}/trade`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "confirm",
-          side: action,
-          amount: action === "fund" ? Number(fundAmount) : Number(amount),
-          signature: sent.signature,
-          payer,
-        }),
-      });
-      const confirmed = await readApiJson<{ error?: string; explorer?: string }>(confirm);
-      if (!confirm.ok) {
-        setError(confirmed.error ?? "Trade landed but the pad could not record it.");
-        setResult(sent.explorer);
-        return;
-      }
-      setResult(confirmed.explorer ?? sent.explorer);
+      setResult(body.explorer ?? null);
       pingMarket();
       router.refresh();
     } catch (err) {
@@ -104,15 +74,9 @@ export function CurveTrade({
   return (
     <div className="space-y-4">
       <p className="text-sm text-parchment/70">
-        Quote is {pairLabel}. Pay {pairLabel} from your connected Solana wallet — not SOL, unless that is the quote.
+        Quote is {pairLabel}. Pay {pairLabel} from your in-app Solana desk — not SOL, unless that is the quote.
         Jupiter has no pool for this mint until the Chapter graduates and the vault opens the book.
       </p>
-      {!address ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-arc/20 bg-arc/5 px-3 py-2">
-          <p className="text-sm text-parchment/70">Connect a wallet to buy, sell, or claim.</p>
-          <SolanaConnectButton compact />
-        </div>
-      ) : null}
       <div className="flex gap-2">
         <Button type="button" variant={side === "buy" ? "default" : "outline"} onClick={() => setSide("buy")}>
           Buy
@@ -126,11 +90,11 @@ export function CurveTrade({
         <Input id="amt" value={amount} onChange={(e) => setAmount(e.target.value)} />
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={busy || !address} onClick={() => void submit(side)}>
+        <Button type="button" disabled={busy} onClick={() => void submit(side)}>
           {busy ? "Sending…" : side === "buy" ? "Buy on the Chapter" : "Sell on the Chapter"}
         </Button>
         {engine === "onceuponers" ? (
-          <Button type="button" variant="secondary" disabled={busy || !address} onClick={() => void submit("claim")}>
+          <Button type="button" variant="secondary" disabled={busy} onClick={() => void submit("claim")}>
             Claim holder share
           </Button>
         ) : null}
@@ -139,11 +103,11 @@ export function CurveTrade({
         <div className="space-y-2 rounded-xl border border-arc/20 bg-arc/5 p-3">
           <Label htmlFor="fund">Fund holder claims ({pairLabel})</Label>
           <p className="text-xs text-parchment/55">
-            Deposit from your wallet into the Story vault. Holders claim in proportion to current holdings. Pool now:{" "}
+            Deposit from your desk into the Story vault. Holders claim in proportion to current holdings. Pool now:{" "}
             {(Number(vaultRaw) / 10 ** quoteDecimals).toLocaleString("en-US", { maximumFractionDigits: 6 })} {pairLabel}
           </p>
           <Input id="fund" value={fundAmount} onChange={(e) => setFundAmount(e.target.value)} />
-          <Button type="button" variant="outline" disabled={busy || !address} onClick={() => void submit("fund")}>
+          <Button type="button" variant="outline" disabled={busy} onClick={() => void submit("fund")}>
             {busy ? "Sending…" : `Deposit ${pairLabel}`}
           </Button>
         </div>
