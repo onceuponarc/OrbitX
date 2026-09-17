@@ -19,6 +19,7 @@
     "check:tokenomics": "node scripts/check-tokenomics.mjs",
     "check:mint-tx": "node scripts/check-mint-tx.mjs",
     "check:read-json": "node --experimental-strip-types --no-warnings scripts/check-read-json.ts",
+    "check:vanity-mint": "node --experimental-strip-types --no-warnings scripts/check-vanity-mint.ts",
     "test:forge": "forge test --root contracts -vv",
     "arc:watch": "node scripts/arc-watchdog.mjs",
     "sql:apply": "node scripts/apply-sql.mjs"

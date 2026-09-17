@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ import {
 import { DevFundBanner } from "@/components/wallet/dev-fund-banner";
 import { readApiJson } from "@/lib/http/read-json";
 import { VANITY_SUFFIX } from "@/lib/solana/vanity";
+import { mineVanitySecretBrowser } from "@/lib/solana/vanity-browser";
 import { LaunchLiveCard, type LiveLaunch } from "@/components/launch/launch-live-card";
 
 export function SolanaLaunchStudio({ handle }: { handle: string | null }) {
@@ -30,9 +31,19 @@ export function SolanaLaunchStudio({ handle }: { handle: string | null }) {
   const [advanced, setAdvanced] = useState<AdvancedLaunchValue>(DEFAULT_ADVANCED_LAUNCH);
   const [cover, setCover] = useState<CoverPick | null>(null);
   const [vanity, setVanity] = useState(true);
+  const [mintSecret, setMintSecret] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<LiveLaunch | null>(null);
+
+  useEffect(() => {
+    if (!vanity) return;
+    const ac = new AbortController();
+    void mineVanitySecretBrowser(VANITY_SUFFIX, ac.signal).then((secret) => {
+      if (!ac.signal.aborted && secret) setMintSecret(secret);
+    });
+    return () => ac.abort();
+  }, [vanity]);
 
   async function launch(event: React.FormEvent) {
     event.preventDefault();
@@ -44,36 +55,55 @@ export function SolanaLaunchStudio({ handle }: { handle: string | null }) {
     setError(null);
     setResult(null);
     try {
-      const built = await fetch("/api/solana/launch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          symbol,
-          blurb: links.description,
-          website: links.website,
-          twitter: links.twitter,
-          telegram: links.telegram,
-          metadataUri: cover?.imageUri,
-          coverUrl: cover?.url,
-          vanity,
-          poolPair: advanced.poolPair,
-          customQuoteMint: advanced.customQuoteMint,
-          mayhemMode: advanced.mayhemMode,
-          rewardsTo: advanced.rewardsTo,
-          creatorFeeBps: advanced.creatorFeeBps,
-        }),
-      });
-      const body = await readApiJson<{
+      const payload = {
+        name,
+        symbol,
+        blurb: links.description,
+        website: links.website,
+        twitter: links.twitter,
+        telegram: links.telegram,
+        metadataUri: cover?.imageUri,
+        coverUrl: cover?.url,
+        vanity,
+        mintSecret: vanity ? mintSecret : null,
+        poolPair: advanced.poolPair,
+        customQuoteMint: advanced.customQuoteMint,
+        mayhemMode: advanced.mayhemMode,
+        rewardsTo: advanced.rewardsTo,
+        creatorFeeBps: advanced.creatorFeeBps,
+      };
+      const attempts = vanity ? 4 : 1;
+      let body: {
         error?: string;
+        retryable?: boolean;
         mint?: string;
         slug?: string;
         signature?: string;
         creator?: string;
-      }>(built);
-      if (!built.ok || !body.mint) {
-        throw new Error(body.error ?? "Fund your in-app Solana wallet with SOL, then retry.");
+      } | null = null;
+      for (let attempt = 1; attempt <= attempts; attempt++) {
+        const built = await fetch("/api/solana/launch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        body = await readApiJson<{
+          error?: string;
+          retryable?: boolean;
+          mint?: string;
+          slug?: string;
+          signature?: string;
+          creator?: string;
+        }>(built);
+        if (built.ok && body.mint) {
+          setMintSecret(null);
+          break;
+        }
+        if (!body.retryable || attempt === attempts) {
+          throw new Error(body.error ?? "Fund your in-app Solana wallet with SOL, then retry.");
+        }
       }
+      if (!body?.mint) throw new Error(body?.error ?? "Fund your in-app Solana wallet with SOL, then retry.");
       setResult({
         venue: "pumpfun",
         name,
@@ -124,11 +154,26 @@ export function SolanaLaunchStudio({ handle }: { handle: string | null }) {
       <DescriptionLinksFields value={links} onChange={setLinks} />
       <AdvancedLaunchFields value={advanced} onChange={setAdvanced} />
       <label className="flex items-center gap-2 text-sm text-white/70">
-        <input type="checkbox" checked={vanity} onChange={(e) => setVanity(e.target.checked)} />
-        Mine a …{VANITY_SUFFIX} mint
+        <input
+          type="checkbox"
+          checked={vanity}
+          onChange={(e) => {
+            const on = e.target.checked;
+            setVanity(on);
+            setMintSecret(null);
+          }}
+        />
+        <span>
+          Mine a …{VANITY_SUFFIX} mint
+          {vanity ? (
+            <span className="ml-2 text-xs text-white/40">
+              {mintSecret ? `…${VANITY_SUFFIX} ready` : "grinding in the background"}
+            </span>
+          ) : null}
+        </span>
       </label>
       <Button type="submit" disabled={busy}>
-        {busy ? "Signing with your desk…" : "Launch on pump.fun"}
+        {busy ? (vanity && !mintSecret ? `Mining a …${VANITY_SUFFIX} mint…` : "Signing with your desk…") : "Launch on pump.fun"}
       </Button>
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
       <ClaimFees />
