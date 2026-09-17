@@ -9,7 +9,9 @@ import { serverSolanaRpcs } from "@/lib/solana/rpc-urls";
 import { deskSolanaKey } from "@/lib/wallets/sign-desk";
 import { createServiceClient } from "@/lib/supabase/service";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
-import { PAD_NAME } from "@onceupon/config/launchpad";
+import { PAD_NAME, metadataDescription, tokenMetadataUri } from "@onceupon/config/launchpad";
+import { pinJson } from "@/lib/media/pin";
+import { buildPumpTokenMetadata, chooseMetadataUri, httpImageUrl } from "@/lib/media/token-json";
 
 const ORBITX_BRAND_LOGO = `${PUBLIC_SITE_URL}/brand/logo.jpg`;
 const ORBITX_BRAND_X = "https://x.com/orbitx_wrld";
@@ -50,6 +52,7 @@ export async function POST(request: Request) {
       telegram?: string;
       metadataUri?: string;
       coverUrl?: string;
+      imageUri?: string;
       vanity?: boolean;
       mintSecret?: string;
       poolPair?: PoolPairChoice;
@@ -79,22 +82,38 @@ export async function POST(request: Request) {
     const prepared = typeof body.mintSecret === "string" ? vanityMintFromSecret(body.mintSecret) : null;
     const minted = prepared ?? (await resolveLaunchMint(body.vanity !== false));
     const mintAddress = minted.keypair.publicKey.toBase58();
-    const metadataUri =
-      body.metadataUri || `${PUBLIC_SITE_URL}/api/token/${mintAddress}/metadata`;
 
     const blurb = (body.blurb ?? "").trim();
     const websiteUrl = normalizeUrl(body.website, "website");
     const twitterUrl = normalizeUrl(body.twitter, "twitter");
     const telegramUrl = normalizeUrl(body.telegram, "telegram");
+    const image = httpImageUrl(body.imageUri, body.coverUrl, ORBITX_BRAND_LOGO);
+    const metadataJson = buildPumpTokenMetadata({
+      name,
+      symbol,
+      description: metadataDescription(blurb, profile?.handle),
+      image,
+      twitter: twitterUrl,
+      telegram: telegramUrl,
+      website: websiteUrl,
+    });
+    // Pin JSON so pump.fun / DexScreener fetch description + links from IPFS.
+    // Never pass the cover image as `uri` — that is why off-platform pages were
+    // blank even though OrbitX's own story row had the fields.
+    const pinned = await pinJson(metadataJson, `${symbol.toLowerCase()}-metadata.json`);
+    const metadataUri = chooseMetadataUri({
+      fallbackUri: tokenMetadataUri(mintAddress),
+      pinnedGatewayUrl: pinned?.gatewayUrl,
+      clientUri: body.metadataUri,
+    });
 
     slug = `${slugify(name) || slugify(symbol) || "token"}-${Math.random().toString(36).slice(2, 6)}`;
 
-    // Persist the story record before minting so metadataUri (fetched by pump.fun's
-    // indexer after the tx lands) already resolves to the real name/description/links
-    // instead of falling back to generic branding. Uses the service-role client: the
-    // session-scoped client was silently hitting stories' RLS INSERT policy (confirmed
-    // via "new row violates row-level security policy" in Postgres logs), which is why
-    // launches weren't showing up on the home feed even though the on-chain mint worked.
+    // Persist the story record before minting so the fallback metadata URL
+    // (fetched by pump.fun's indexer after the tx lands) already resolves to
+    // the real name/description/links instead of generic branding. Uses the
+    // service-role client: the session-scoped client was silently hitting
+    // stories' RLS INSERT policy.
     try {
       const supabase = createServiceClient();
       await supabase.from("stories").insert({
@@ -102,8 +121,9 @@ export async function POST(request: Request) {
         title: name,
         ticker: symbol,
         blurb,
-        cover_url: body.coverUrl || ORBITX_BRAND_LOGO,
-        image_uri: body.coverUrl || ORBITX_BRAND_LOGO,
+        cover_url: body.coverUrl || image,
+        image_uri: body.imageUri || image,
+        metadata_uri: metadataUri,
         website_url: websiteUrl,
         twitter_url: twitterUrl,
         telegram_url: telegramUrl,
@@ -161,11 +181,9 @@ export async function POST(request: Request) {
       holderReward,
       appliedCreatorFeeBps: built.appliedCreatorFeeBps,
       metadata: {
-        name,
-        symbol,
-        description: blurb || `${name} launched on ${PAD_NAME}.`,
-        image: body.coverUrl || ORBITX_BRAND_LOGO,
-        createdOn: PUBLIC_SITE_URL,
+        ...metadataJson,
+        uri: metadataUri,
+        fallbackUri: tokenMetadataUri(mintAddress),
         launchpad: PAD_NAME,
         brand: "OrbitX",
         brandName: "OrbitX",
@@ -174,9 +192,6 @@ export async function POST(request: Request) {
         officialX: ORBITX_BRAND_X,
         officialTelegram: ORBITX_BRAND_TELEGRAM,
         creatorX: profile?.handle ? `@${profile.handle}` : "",
-        website: websiteUrl ?? undefined,
-        twitter: twitterUrl ?? undefined,
-        telegram: telegramUrl ?? undefined,
       },
     });
   } catch (error) {

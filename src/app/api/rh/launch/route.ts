@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
-import { launchWithPons, type PonsLaunchInput } from "@/lib/rh/pons";
+import { launchWithPons } from "@/lib/rh/pons";
 import { deskRhWallet } from "@/lib/wallets/rh-client";
 import { RH } from "@onceupon/config/rh";
 import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
+import { httpImageUrl } from "@/lib/media/token-json";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     const { user, profile } = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Sign in with X first." }, { status: 401 });
     const body = (await request.json()) as {
-      name?: string; symbol?: string; coverUrl?: string; description?: string;
+      name?: string; symbol?: string; coverUrl?: string; imageUri?: string; description?: string;
       website?: string; twitter?: string; telegram?: string;
     };
     const name = (body.name ?? "").trim().slice(0, 32);
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
       name,
       symbol,
       description: `${(body.description ?? "").trim() || "Launched on OrbitX"}\n\nOfficial launchpad: OrbitX · https://www.orbitxtrade.world · X: https://x.com/orbitx_wrld`,
-      logo: body.coverUrl || `${PUBLIC_SITE_URL}/brand/logo.jpg`,
+      logo: httpImageUrl(body.imageUri, body.coverUrl, `${PUBLIC_SITE_URL}/brand/logo.jpg`),
       twitter,
       website,
       telegram,
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
       const supabase = createServiceClient();
       await supabase.from("stories").insert({
         slug, title: name, ticker: symbol, blurb: body.description ?? "Launched on OrbitX",
-        cover_url: body.coverUrl ?? null, image_uri: body.coverUrl ?? null,
+        cover_url: body.coverUrl ?? body.imageUri ?? null, image_uri: body.imageUri ?? body.coverUrl ?? null,
         website_url: website || null, twitter_url: twitter || null, telegram_url: telegram || null,
         author_user_id: user.id, author_wallet: address, engine: "author", status: "live",
         author_bps: 100, chain: "robinhood", venue: "pons", pair_class: "other", pair_label: "ETH",
