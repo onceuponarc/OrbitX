@@ -1,12 +1,24 @@
 import "server-only";
 
-import { formatUnits, parseEventLogs, type Address, type PublicClient, type WalletClient } from "viem";
+import { formatUnits, keccak256, parseEventLogs, toHex, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
+import { prepareArgusLaunch } from "@/lib/arc/argus-hook";
 
 export const ARGUS_PORTAL7 = "0xB021Be536808f551b31789422Fd28a6c9c6e97Da" as Address;
 export const ARGUS_POOL_MANAGER = "0x8366a39CC670B4001A1121B8F6A443A643e40951" as Address;
+export const ARGUS_TREASURY = "0x934dEa9aB179DE155db10519AA89A8c418c50705" as Address;
+export const ARGUS_TOKEN_IMPL = "0x1b74922c01DdFd9c77b37d02c0a236611E8FE500" as Address;
+export const ARGUS_LOCKER_IMPL = "0xB2Ed8112DB1BC11F7E7ab7969c2A9d1F819Cfc6A" as Address;
+export const ARGUS_SPLITTER_IMPL = "0xD9578Dd861B2fe59675c2C4B09b026fcB0dF37fc" as Address;
 export const ARC_USDC = "0x3600000000000000000000000000000000000000" as Address;
 
-const erc20Abi = [{ type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] }] as const;
+const portalViewsAbi = [
+  { type: "function", name: "tokenImpl", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "splitterImpl", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "poolManager", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "treasury", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "POOL_FEE", stateMutability: "view", inputs: [], outputs: [{ type: "uint24" }] },
+  { type: "function", name: "TICK_SPACING", stateMutability: "view", inputs: [], outputs: [{ type: "int24" }] },
+] as const;
 
 export const ARGUS_PORTAL7_ABI = [
   { type: "function", name: "launch", stateMutability: "nonpayable", inputs: [{ name: "p", type: "tuple", components: [
@@ -34,14 +46,41 @@ export const ARGUS_PORTAL7_ABI = [
   ] },
 ] as const;
 
+async function readPortalConfig(pub: PublicClient) {
+  try {
+    const [tokenImpl, splitterImpl, poolManager, treasury, poolFee, tickSpacing] = await Promise.all([
+      pub.readContract({ address: ARGUS_PORTAL7, abi: portalViewsAbi, functionName: "tokenImpl" }),
+      pub.readContract({ address: ARGUS_PORTAL7, abi: portalViewsAbi, functionName: "splitterImpl" }),
+      pub.readContract({ address: ARGUS_PORTAL7, abi: portalViewsAbi, functionName: "poolManager" }),
+      pub.readContract({ address: ARGUS_PORTAL7, abi: portalViewsAbi, functionName: "treasury" }),
+      pub.readContract({ address: ARGUS_PORTAL7, abi: portalViewsAbi, functionName: "POOL_FEE" }),
+      pub.readContract({ address: ARGUS_PORTAL7, abi: portalViewsAbi, functionName: "TICK_SPACING" }),
+    ]);
+    return {
+      tokenImpl, splitterImpl, poolManager, treasury,
+      poolFee: Number(poolFee), tickSpacing: Number(tickSpacing),
+    };
+  } catch {
+    return {
+      tokenImpl: ARGUS_TOKEN_IMPL, splitterImpl: ARGUS_SPLITTER_IMPL,
+      poolManager: ARGUS_POOL_MANAGER, treasury: ARGUS_TREASURY,
+      poolFee: 10_000, tickSpacing: 200,
+    };
+  }
+}
+
+function randomSalt(): Hex {
+  return keccak256(toHex(crypto.getRandomValues(new Uint8Array(32))));
+}
+
 export async function launchWithArgus(input: {
   name: string; symbol: string; logo?: string; twitter?: string; telegram?: string; website?: string;
   blurb?: string; creator: Address; wallet: WalletClient; pub: PublicClient;
 }) {
   const account = input.wallet.account;
   if (!account) throw new Error("Arc wallet account is unavailable.");
-  const salt = `0x${Buffer.from(`${input.creator}:${input.name}:${input.symbol}:${Date.now()}`).toString("hex").padEnd(64, "0").slice(0, 64)}` as `0x${string}`;
-  const hookSalt = `0x${Buffer.from(`hook:${input.creator}:${input.name}:${Date.now()}`).toString("hex").padEnd(64, "0").slice(0, 64)}` as `0x${string}`;
+  const sender = account.address;
+  const cfg = await readPortalConfig(input.pub);
   const params = {
     name: input.name.slice(0, 32), symbol: input.symbol.toUpperCase().slice(0, 10), totalSupply: 1_000_000_000n * 10n ** 18n,
     startFdvUsdc6: 10_000n * 10n ** 6n, bondFdvUsdc6: 100_000n * 10n ** 6n,
@@ -49,6 +88,24 @@ export async function launchWithArgus(input: {
     devBuyQuote: 0n, quoteAsset: ARC_USDC, expectConvert: 1,
   } as const;
   const meta = { imageURI: input.logo || "", website: input.website || "", twitter: input.twitter || "", telegram: input.telegram || "", description: (input.blurb || "").slice(0, 280) } as const;
+
+  let salt: Hex = randomSalt();
+  let hookSalt: Hex = randomSalt();
+  for (let attempt = 0; attempt < 8; attempt++) {
+    salt = randomSalt();
+    const prepared = prepareArgusLaunch({
+      portal: ARGUS_PORTAL7, sender, userSalt: salt,
+      tokenImpl: cfg.tokenImpl, splitterImpl: cfg.splitterImpl,
+      poolManager: cfg.poolManager, treasury: cfg.treasury, quoteAsset: ARC_USDC,
+      buyTaxBps: params.buyTaxBps, sellTaxBps: params.sellTaxBps,
+      poolFee: cfg.poolFee, tickSpacing: cfg.tickSpacing,
+    });
+    hookSalt = prepared.hookSalt;
+    const occupied = await input.pub.getCode({ address: prepared.token });
+    if (occupied && occupied !== "0x") continue;
+    break;
+  }
+
   let request;
   try {
     ({ request } = await input.pub.simulateContract({ address: ARGUS_PORTAL7, abi: ARGUS_PORTAL7_ABI, functionName: "launch", args: [params, meta, salt, hookSalt], account }));
