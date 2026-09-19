@@ -186,6 +186,7 @@ const {
   estimatePool,
   primaryMarketComplete,
   secondaryMarketsComplete,
+  tickerConflicts,
 } = await import("../src/lib/custom-launch/markets.ts");
 
 const markets = createMarketsConfig();
@@ -204,6 +205,15 @@ const duplicate = { ...markets, secondary: [createSecondaryMarket("usdc"), creat
 assert(!secondaryMarketsComplete(duplicate), "duplicate secondary quotes fail validation");
 const incomplete = { ...markets, secondary: [{ ...createSecondaryMarket("eth"), pool: { tokenAllocation: "", pairedAmount: "" } }] };
 assert(!secondaryMarketsComplete(incomplete), "empty secondary pool fails validation");
+const usdcPrimary = { ...markets, primary: { ...markets.primary, quote: "usdc" as const } };
+assert(tickerConflicts(usdcPrimary, "USDC"), "primary USDC cannot be added again");
+assert(
+  !secondaryMarketsComplete({
+    ...usdcPrimary,
+    secondary: [{ ...createSecondaryMarket("other", "USDC") }],
+  }),
+  "custom USDC ticker colliding with primary fails",
+);
 
 assert(autoSrc.includes("export type AutomationRule"), "AutomationRule type exists");
 assert(autoSrc.includes("TRIGGER_KINDS"), "trigger kinds exist");

@@ -255,18 +255,36 @@ export function primaryMarketComplete(markets: MarketsConfig, totalSupply = "100
   return Boolean(markets.primary.quote) && estimate.valid && !estimate.error && markets.access.primaryEnabled;
 }
 
+export function marketTickers(markets: MarketsConfig) {
+  return [
+    quoteTicker(markets.primary.quote),
+    ...markets.secondary.map((row) => quoteTicker(row.quote, row.customTicker)),
+  ].filter(Boolean);
+}
+
+export function tickerConflicts(markets: MarketsConfig, ticker: string, ignoreId?: string) {
+  const clean = ticker.trim().toUpperCase();
+  if (!clean) return false;
+  if (quoteTicker(markets.primary.quote) === clean) return true;
+  return markets.secondary.some(
+    (row) => row.id !== ignoreId && quoteTicker(row.quote, row.customTicker) === clean,
+  );
+}
+
 export function secondaryMarketError(market: SecondaryMarket, siblings: SecondaryMarket[], primary: PrimaryQuoteId) {
   const ticker = quoteTicker(market.quote, market.customTicker);
-  if (market.quote === primary) return "That market has already been added.";
+  if (market.quote === primary || ticker === QUOTE_ASSETS[primary].ticker) {
+    return "That market has already been added.";
+  }
   if (market.quote !== "other" && siblings.filter((row) => row.quote === market.quote).length > 1) {
     return "That market has already been added.";
   }
   if (market.quote === "other") {
     if (!market.customTicker.trim()) return "Name the custom quote asset.";
     const sameTicker = siblings.filter(
-      (row) => row.quote === "other" && row.customTicker.trim().toUpperCase() === market.customTicker.trim().toUpperCase(),
+      (row) => row.id !== market.id && quoteTicker(row.quote, row.customTicker) === ticker,
     );
-    if (sameTicker.length > 1) return "That market has already been added.";
+    if (sameTicker.length > 0) return "That market has already been added.";
   }
   const estimate = estimatePool(market.pool, market.quote, "1", market.customTicker);
   if (!estimate.valid) return "Complete this market or remove it.";

@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/custom-launch/field";
 import { MetricTile } from "@/components/custom-launch/panel";
 import {
-  availableSecondaryQuotes,
   configuredMarketCount,
   createSecondaryMarket,
   estimatePool,
@@ -20,7 +19,9 @@ import {
   pairLabel,
   primaryEstimate,
   QUOTE_ASSETS,
+  SECONDARY_QUOTES,
   secondaryMarketError,
+  tickerConflicts,
   type QuoteAssetId,
 } from "@/lib/custom-launch/markets";
 import { cn } from "@/lib/utils";
@@ -31,18 +32,13 @@ export function SecondaryMarketsStep() {
   const [adding, setAdding] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [customTicker, setCustomTicker] = useState("");
-  const available = availableSecondaryQuotes(markets);
   const primaryEst = primaryEstimate(markets, draft.token.supply);
   const configured = configuredMarketCount(markets, draft.token.supply);
 
   function addMarket(quote: QuoteAssetId) {
     if (quote === "other" && !customTicker.trim()) return;
-    if (
-      quote === "other" &&
-      markets.secondary.some((row) => row.quote === "other" && row.customTicker === customTicker.trim().toUpperCase())
-    ) {
-      return;
-    }
+    const ticker = quote === "other" ? customTicker.trim().toUpperCase() : QUOTE_ASSETS[quote].ticker;
+    if (tickerConflicts(markets, ticker)) return;
     const next = createSecondaryMarket(quote, customTicker.trim().toUpperCase());
     update((current) => ({
       ...current,
@@ -108,41 +104,59 @@ export function SecondaryMarketsStep() {
         {adding ? (
           <div className="mt-4 space-y-3">
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {available.map((id) => {
+              {SECONDARY_QUOTES.filter((id) => id !== "other").map((id) => {
                 const asset = QUOTE_ASSETS[id];
+                const taken = tickerConflicts(markets, asset.ticker);
+                const isPrimary = markets.primary.quote === id;
                 return (
                   <button
                     key={id}
                     type="button"
-                    onClick={() => (id === "other" ? undefined : addMarket(id))}
+                    disabled={taken}
+                    onClick={() => addMarket(id)}
                     className={cn(
-                      "rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-left hover:border-white/25",
-                      id === "other" && "pointer-events-none opacity-80",
+                      "rounded-2xl border px-4 py-3 text-left",
+                      taken
+                        ? "cursor-not-allowed border-white/8 bg-black/10 text-white/35"
+                        : "border-white/10 bg-black/20 hover:border-white/25",
                     )}
                   >
-                    <p className="text-sm font-semibold">{asset.ticker}</p>
-                    <p className="mt-1 text-xs text-white/45">{asset.body}</p>
+                    <p className="text-sm font-semibold text-white">{asset.ticker}</p>
+                    <p className="mt-1 text-xs text-white/45">
+                      {isPrimary
+                        ? "Primary market — already added."
+                        : taken
+                          ? "That market has already been added."
+                          : asset.body}
+                    </p>
                   </button>
                 );
               })}
             </div>
-            {available.includes("other") ? (
-              <div className="flex flex-wrap items-end gap-3">
-                <Field label="Custom quote ticker" className="min-w-[160px] flex-1">
-                  <Input
-                    value={customTicker}
-                    onChange={(event) => setCustomTicker(event.target.value.toUpperCase().slice(0, 8))}
-                    placeholder="BTC"
-                  />
-                </Field>
-                <Button type="button" disabled={!customTicker.trim()} onClick={() => addMarket("other")}>
-                  Add custom market
-                </Button>
-              </div>
-            ) : null}
-            {available.length === 0 ? (
-              <p className="text-sm text-white/45">Every supported secondary quote is already on the draft.</p>
-            ) : null}
+            <div className="flex flex-wrap items-end gap-3">
+              <Field
+                label="Custom quote ticker"
+                className="min-w-[160px] flex-1"
+                error={
+                  customTicker.trim() && tickerConflicts(markets, customTicker)
+                    ? "That market has already been added."
+                    : undefined
+                }
+              >
+                <Input
+                  value={customTicker}
+                  onChange={(event) => setCustomTicker(event.target.value.toUpperCase().slice(0, 8))}
+                  placeholder="OTHER"
+                />
+              </Field>
+              <Button
+                type="button"
+                disabled={!customTicker.trim() || tickerConflicts(markets, customTicker)}
+                onClick={() => addMarket("other")}
+              >
+                Add custom market
+              </Button>
+            </div>
           </div>
         ) : null}
 
