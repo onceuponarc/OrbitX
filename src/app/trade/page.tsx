@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { TradePanel } from "@/components/token/trade-panel";
 import { OFFICIAL_TOKEN } from "@/lib/official-token";
 import { RiskFeeNotice } from "@/components/launch/beta-notice";
+import { isHiddenTestLaunch } from "@/lib/feed";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ async function loadTradableTokens() {
       .not("token_address", "is", null)
       .order("created_at", { ascending: false })
       .limit(24);
-    return data ?? [];
+    return (data ?? []).filter((row) => !isHiddenTestLaunch(row));
   } catch {
     return [];
   }
@@ -49,7 +50,16 @@ export default async function TradePage({
         <div className="pad-panel space-y-2 rounded-[1.4rem] p-3">
           <p className="px-1 text-xs text-white/40">OrbitX launches, or paste any mint.</p>
           <div className="space-y-1">
-            {tokens.map((t) => (
+            <Link
+              href={`/trade?mint=${OFFICIAL_TOKEN.mint}&symbol=${OFFICIAL_TOKEN.ticker}`}
+              className="flex items-center justify-between rounded-xl px-3 py-3 text-sm hover:bg-white/5"
+            >
+              <span className="font-medium">${OFFICIAL_TOKEN.ticker}</span>
+              <span className="truncate text-xs text-white/40">{OFFICIAL_TOKEN.name} · official</span>
+            </Link>
+            {tokens
+              .filter((t) => t.token_address !== OFFICIAL_TOKEN.mint)
+              .map((t) => (
               <Link
                 key={t.slug}
                 href={`/trade?mint=${t.token_address}&symbol=${t.ticker}`}

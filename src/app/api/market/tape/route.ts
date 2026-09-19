@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { localTape } from "@/lib/arc/store";
+import { isHiddenTestLaunch } from "@/lib/feed";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +14,9 @@ export async function GET() {
     quoteUi: number;
     trader: string;
     at: string;
-  }[] = localTape(24).map((item) => ({
+  }[] = localTape(24)
+    .filter((item) => !isHiddenTestLaunch(item))
+    .map((item) => ({
     slug: item.slug,
     ticker: item.ticker,
     side: item.side,
@@ -33,7 +36,7 @@ export async function GET() {
       if (!story || typeof story !== "object" || !("slug" in story)) continue;
       const slug = String((story as { slug: string }).slug);
       const quote = String((story as { quote_mint?: string | null }).quote_mint ?? "").toLowerCase();
-      if (["volt-hrrb", "rune-kuou", "edge-u7iw"].includes(slug) || quote === "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707") {
+      if (isHiddenTestLaunch({ slug, ticker: String((story as { ticker?: string }).ticker ?? ""), quoteAddress: quote, tokenAddress: String((story as { token_address?: string }).token_address ?? "") })) {
         continue;
       }
       const quoteDecimals = Number((story as { quote_decimals?: number }).quote_decimals ?? 6);

@@ -13,7 +13,6 @@ const COLS = [
   {
     title: "Create",
     links: [
-      { href: "/cards", label: "Cards" },
       { href: "/drop", label: "Drop" },
       { href: "/you", label: "You" },
       { href: "/tools", label: "Tools" },

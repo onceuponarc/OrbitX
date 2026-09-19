@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { viewAllCards } from "@/lib/cards/resolve";
 import { loadPadMarket } from "@/lib/market";
 import { formatUsd } from "@/lib/format";
 import { LiveRefresh } from "@/components/pad/live-refresh";
@@ -13,7 +12,7 @@ export const metadata: Metadata = {
   description: "$ORBITX is live on Solana. Official CA only from @orbitx_wrld and Telegram.",
   openGraph: {
     title: "OrbitX drop",
-    description: "Print a token. Print an NFT card. Let MC move both.",
+    description: "Launch a token. $ORBITX is live on Solana.",
     url: "/drop",
   },
 };
@@ -26,33 +25,36 @@ const PLAY = [
 ];
 
 export default async function DropPage() {
-  const [{ launches }, cards] = await Promise.all([loadPadMarket(), viewAllCards().catch(() => [])]);
+  const { launches, volume } = await loadPadMarket();
   const live = launches.filter((row) => row.status === "live").length;
-  const volume = launches.reduce((sum, row) => sum + row.volumeUi, 0);
 
   return (
     <div className="space-y-8 lg:mx-auto lg:max-w-3xl lg:text-center">
-      <LiveRefresh intervalMs={2000} />
+      <LiveRefresh />
 
       <section>
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-gold/80">Launch day</p>
         <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-tight lg:text-6xl">The desk is open.</h1>
         <p className="mt-4 max-w-xl text-base text-white/60 lg:mx-auto">
-          Launch a token on any chain. Mint an NFT card from a tweet or ticker. Card value tracks the token&apos;s
-          MC — the two markets stay separate.
+          Launch a token on any chain. Live the moment it lands. $ORBITX is already on the board.
         </p>
         <div className="mt-6 grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:justify-center lg:gap-3">
           <Link href="/launch" className="rounded-2xl bg-gold py-3 text-center text-sm font-semibold text-ink lg:rounded-full lg:px-6">
             Launch now
           </Link>
-          <Link href="/cards/new" className="rounded-2xl border border-white/15 py-3 text-center text-sm lg:rounded-full lg:px-6">
-            Mint a card
+          <Link href="/trade" className="rounded-2xl border border-white/15 py-3 text-center text-sm lg:rounded-full lg:px-6">
+            Trade $ORBITX
           </Link>
         </div>
-        <dl className="mt-6 grid grid-cols-3 gap-2">
+        <dl className="mt-6 grid grid-cols-2 gap-2">
           <Stat k="Live" v={String(live)} />
-          <Stat k="Volume" v={formatUsd(volume)} />
-          <Stat k="NFT cards" v={String(cards.length)} />
+          <Stat k="Board" v="$ORBITX" />
+        </dl>
+        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">Token volume</p>
+        <dl className="mt-1.5 grid grid-cols-3 gap-2">
+          <Stat k="24h" v={formatUsd(volume.dayUsd)} />
+          <Stat k="7d" v={formatUsd(volume.weekUsd)} />
+          <Stat k="Total" v={formatUsd(volume.totalUsd)} />
         </dl>
       </section>
 

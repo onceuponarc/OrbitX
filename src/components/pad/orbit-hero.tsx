@@ -4,12 +4,16 @@ import { formatUsd } from "@/lib/format";
 export function OrbitHero({
   liveCount,
   bondedCount,
-  volumeUi,
+  volumeDayUsd,
+  volumeWeekUsd,
+  volumeTotalUsd,
   handle,
 }: {
   liveCount: number;
   bondedCount: number;
-  volumeUi: number;
+  volumeDayUsd: number;
+  volumeWeekUsd: number;
+  volumeTotalUsd: number;
   handle: string | null;
 }) {
   return (
@@ -19,10 +23,15 @@ export function OrbitHero({
         <h1 className="mt-1 text-[1.85rem] font-semibold leading-[1.05] tracking-tight">
           The pad is <span className="text-gold">live</span>
         </h1>
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-2">
           <Stat label="Live" value={String(liveCount)} />
           <Stat label="Graduated" value={String(bondedCount)} />
-          <Stat label="Volume" value={formatUsd(volumeUi)} accent />
+        </div>
+        <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">Token volume</p>
+        <div className="mt-1.5 grid grid-cols-3 gap-2">
+          <Stat label="24h" value={formatUsd(volumeDayUsd)} accent />
+          <Stat label="7d" value={formatUsd(volumeWeekUsd)} />
+          <Stat label="Total" value={formatUsd(volumeTotalUsd)} />
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Link href="/launch" className="rounded-2xl bg-gold py-3 text-center text-sm font-semibold text-ink">
@@ -56,27 +65,40 @@ export function OrbitHero({
                 Launch a token
               </Link>
               <Link
-                href="/cards"
+                href="/trade"
                 className="rounded-full border border-white/12 px-5 py-2.5 text-sm font-medium text-white/80 hover:text-white"
               >
-                Press cards
+                Trade $ORBITX
               </Link>
             </div>
           </div>
-          <dl className="grid grid-cols-3 gap-6">
-            <div>
-              <dt className="text-xs text-white/40">Live now</dt>
-              <dd className="mt-1 text-4xl font-semibold tracking-tight">{liveCount}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-white/40">Graduated</dt>
-              <dd className="mt-1 text-4xl font-semibold tracking-tight">{bondedCount}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-white/40">Volume</dt>
-              <dd className="mt-1 text-4xl font-semibold tracking-tight text-gold">{formatUsd(volumeUi)}</dd>
-            </div>
-          </dl>
+          <div className="min-w-[22rem]">
+            <dl className="grid grid-cols-2 gap-6">
+              <div>
+                <dt className="text-xs text-white/40">Live now</dt>
+                <dd className="mt-1 text-4xl font-semibold tracking-tight">{liveCount}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-white/40">Graduated</dt>
+                <dd className="mt-1 text-4xl font-semibold tracking-tight">{bondedCount}</dd>
+              </div>
+            </dl>
+            <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.18em] text-white/35">Token volume</p>
+            <dl className="mt-2 grid grid-cols-3 gap-4">
+              <div>
+                <dt className="text-xs text-white/40">24h</dt>
+                <dd className="mt-1 text-2xl font-semibold tracking-tight text-gold">{formatUsd(volumeDayUsd)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-white/40">7d</dt>
+                <dd className="mt-1 text-2xl font-semibold tracking-tight">{formatUsd(volumeWeekUsd)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-white/40">Total</dt>
+                <dd className="mt-1 text-2xl font-semibold tracking-tight">{formatUsd(volumeTotalUsd)}</dd>
+              </div>
+            </dl>
+          </div>
         </div>
       </div>
     </section>

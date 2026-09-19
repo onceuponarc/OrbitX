@@ -2,8 +2,16 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { listLocalArcStories, localTape } from "@/lib/arc/store";
-import { enrichLaunch, feedFromArc, isListedLaunch, type FeedLaunch, type RawTrade, type TapeItem } from "@/lib/feed";
+import { enrichLaunch, feedFromArc, isListedLaunch, officialFeedLaunch, pinOfficialFirst, isOfficialLaunch, type FeedLaunch, type RawTrade, type TapeItem } from "@/lib/feed";
 import { getPumpBondingProgress } from "@/lib/solana/pump-progress";
+import { OFFICIAL_TOKEN } from "@/lib/official-token";
+import {
+  loadTokenVolumes,
+  overlayLaunchVolume,
+  sumPadVolume,
+  volumeKey,
+  type PadVolume,
+} from "@/lib/token-volume";
 
 type StoryRow = {
   id: string;
@@ -30,7 +38,7 @@ type StoryRow = {
   users: { handle: string } | { handle: string }[] | null;
 };
 
-export async function loadPadMarket(): Promise<{ launches: FeedLaunch[]; tape: TapeItem[] }> {
+export async function loadPadMarket(): Promise<{ launches: FeedLaunch[]; tape: TapeItem[]; volume: PadVolume }> {
   const local = listLocalArcStories().map(feedFromArc);
   const tape: TapeItem[] = localTape(24).map((item) => ({
     slug: item.slug,
@@ -140,13 +148,38 @@ export async function loadPadMarket(): Promise<{ launches: FeedLaunch[]; tape: T
     const merged = [...local.filter((item) => !seen.has(item.slug)), ...remote].sort(
       (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
     );
-    const launches = merged.filter(isListedLaunch);
+    const { launches, volume } = await withMarketVolume(merged.filter(isListedLaunch));
     tape.sort((a, b) => +new Date(b.at) - +new Date(a.at));
     const listedSlugs = new Set(launches.map((item) => item.slug));
-    return { launches, tape: tape.filter((item) => listedSlugs.has(item.slug)).slice(0, 24) };
+    return {
+      launches,
+      tape: tape.filter((item) => listedSlugs.has(item.slug)).slice(0, 24),
+      volume,
+    };
   } catch (error) {
     console.error("Pad market failed", error);
-    const launches = local.filter(isListedLaunch);
-    return { launches, tape: tape.filter((item) => launches.some((row) => row.slug === item.slug)).slice(0, 24) };
+    const { launches, volume } = await withMarketVolume(local.filter(isListedLaunch));
+    return {
+      launches,
+      tape: tape.filter((item) => launches.some((row) => row.slug === item.slug)).slice(0, 24),
+      volume,
+    };
   }
+}
+
+async function withMarketVolume(launches: FeedLaunch[]): Promise<{ launches: FeedLaunch[]; volume: PadVolume }> {
+  const tokens = launches
+    .filter((item) => item.tokenAddress)
+    .map((item) => ({ chain: item.chain ?? "arc", mint: item.tokenAddress as string }));
+  tokens.push({ chain: "solana", mint: OFFICIAL_TOKEN.mint });
+  const volumes = await loadTokenVolumes(tokens).catch(() => new Map());
+  const next = launches.map((launch) => {
+    if (!launch.tokenAddress) return launch;
+    return overlayLaunchVolume(launch, volumes.get(volumeKey(launch.chain ?? "arc", launch.tokenAddress)));
+  });
+  const official = volumes.get(volumeKey("solana", OFFICIAL_TOKEN.mint));
+  const withoutOfficialDup = next.filter((item) => !isOfficialLaunch(item));
+  const officialRow = overlayLaunchVolume(officialFeedLaunch(), official);
+  const listed = pinOfficialFirst([officialRow, ...withoutOfficialDup]);
+  return { launches: listed, volume: sumPadVolume(listed) };
 }
