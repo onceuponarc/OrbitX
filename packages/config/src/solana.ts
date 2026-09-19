@@ -32,7 +32,7 @@ export const ROBINHOOD_CHAIN = {
   caip2: "eip155:4663",
   explorer: "https://robinhoodchain.blockscout.com",
   rpcUrl: "https://rpc.mainnet.chain.robinhood.com",
-  note: "OrbitX prints spot tokens on Robinhood Chain. No bonding curve.",
+  note: "OrbitX prints on Robinhood Chain via Pons v2. Launches are live. Curve is tradable at create.",
   ponsFactory: "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e",
   ponsRouter: "0xe33e9e479df8802cb0866d5d05258bec4cf62948",
 } as const;
@@ -101,11 +101,11 @@ export const CHAINS: ChainCard[] = [
     title: "Robinhood Chain",
     live: true,
     prints: true,
-    badge: "Spot · no curve",
-    body: "Fund your in-app RH wallet with ETH. Print a spot token. No bonding curve. Supply sits in your desk. Tradable as soon as you seed the WETH book.",
+    badge: "Pons v2 · live",
+    body: "Fund your in-app RH wallet with ETH. Print on Pons v2 — fully live, out of beta. Curve is tradable at create. Volume graduates into a locked Uniswap v4 LP.",
     caip2: "eip155:4663",
     accent: "from-[#00c805]/40 to-white/10",
-    printNote: "ERC-20 on chain 4663. Your desk pays gas and receives fees.",
+    printNote: "Pons v2 on chain 4663. Tradable at create. Your desk pays gas and receives fees.",
   },
 ];
 

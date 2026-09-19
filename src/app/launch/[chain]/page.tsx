@@ -44,7 +44,7 @@ export default async function LaunchChainPage({ params }: Props) {
           {solana
             ? "pump.fun. Tradable at create. Jupiter buy/sell. Fees to your in-app Solana wallet."
             : robinhood
-              ? "Pons v2. Tradable at create. Volume feeds the Uniswap v4 LP. Fees to your in-app RH wallet."
+              ? "Fully live, out of beta. Pons v2. Tradable at create. Volume feeds the Uniswap v4 LP. Fees to your in-app RH wallet."
               : "Argus v4 on Arc. The launch transaction seeds the Uniswap v4 USDC pool so it does not go live at $0 liquidity. Fund the in-app wallet with the seed plus gas."}
         </p>
         <div className="relative mt-5">
@@ -53,7 +53,7 @@ export default async function LaunchChainPage({ params }: Props) {
           />
         </div>
       </section>
-      {!solana ? <BetaNotice chain={robinhood ? "robinhood" : "arc"} /> : null}
+      {chain === "arc" ? <BetaNotice chain="arc" /> : null}
       <RiskFeeNotice />
       {solana ? (
         <SolanaLaunchStudio handle={profile?.handle ?? null} />

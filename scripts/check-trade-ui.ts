@@ -31,13 +31,16 @@ if (!story.includes("ArcTrade") || !story.includes('chain === "arc"')) {
 }
 
 const launch = readFileSync(new URL("../src/app/launch/[chain]/page.tsx", import.meta.url), "utf8");
-if (!launch.includes('redirect("/launch/arc")')) {
-  throw new Error("Non-Arc launch routes must send people to Arc.");
+if (!launch.includes("RhLaunchStudio")) {
+  throw new Error("Robinhood launch route must mount the RH studio.");
+}
+if (/BetaNotice chain=\{robinhood/.test(launch) || launch.includes('BetaNotice chain="robinhood"')) {
+  throw new Error("Robinhood launches are live and must not show the beta notice.");
 }
 
 const home = readFileSync(new URL("../src/app/page.tsx", import.meta.url), "utf8");
-if (/launch\/solana|launch\/robinhood|Print SPL|Robinhood Chain/.test(home)) {
-  throw new Error("Home must not offer Solana or Robinhood launches.");
+if (/launch\/solana|launch\/robinhood|Print SPL/.test(home)) {
+  throw new Error("Home must not deep-link Solana or Robinhood launch routes.");
 }
 
 const blocked = humanizeJupiterQuoteError({
