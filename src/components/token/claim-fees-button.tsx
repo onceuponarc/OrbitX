@@ -1,26 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { readApiJson } from "@/lib/http/read-json";
+import { postClaimCreatorFees } from "@/lib/http/claim-creator-fees";
 
 export function ClaimFeesButton({ signedIn }: { signedIn: boolean }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ explorer: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const inflight = useRef(false);
 
   async function claim() {
+    if (inflight.current) return;
+    inflight.current = true;
     setBusy(true);
     setError(null);
     setResult(null);
     try {
-      const res = await fetch("/api/solana/claim", { method: "POST" });
-      const body = await readApiJson<{ error?: string; explorer?: string }>(res);
-      if (!res.ok || !body.explorer) throw new Error(body.error ?? "Nothing to claim right now.");
+      const body = await postClaimCreatorFees();
       setResult({ explorer: body.explorer });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Claim failed.");
+      const message =
+        err instanceof DOMException && err.name === "TimeoutError"
+          ? "Claim timed out. Fund the desk and retry."
+          : err instanceof Error
+            ? err.message
+            : "Claim failed.";
+      setError(message);
     } finally {
+      inflight.current = false;
       setBusy(false);
     }
   }

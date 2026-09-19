@@ -17,6 +17,7 @@ import {
 } from "@/components/launch/advanced-launch-fields";
 import { DevFundBanner } from "@/components/wallet/dev-fund-banner";
 import { readApiJson } from "@/lib/http/read-json";
+import { postClaimCreatorFees } from "@/lib/http/claim-creator-fees";
 import { VANITY_SUFFIX } from "@/lib/solana/vanity";
 import { mineVanitySecretBrowser } from "@/lib/solana/vanity-browser";
 import { LaunchLiveCard, type LiveLaunch } from "@/components/launch/launch-live-card";
@@ -127,7 +128,8 @@ export function SolanaLaunchStudio({ handle }: { handle: string | null }) {
   }
 
   return (
-    <form onSubmit={(event) => void launch(event)} className="pad-fade space-y-5 rounded-3xl border border-white/10 p-5">
+    <div className="pad-fade space-y-5 rounded-3xl border border-white/10 p-5">
+      <form onSubmit={(event) => void launch(event)} className="space-y-5">
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/40">Solana · pump.fun</p>
         <h2 className="mt-1 text-2xl font-semibold">Print on Solana</h2>
@@ -176,8 +178,9 @@ export function SolanaLaunchStudio({ handle }: { handle: string | null }) {
         {busy ? (vanity && !mintSecret ? `Mining a …${VANITY_SUFFIX} mint…` : "Signing with your desk…") : "Launch on pump.fun"}
       </Button>
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      </form>
       <ClaimFees />
-    </form>
+    </div>
   );
 }
 
@@ -187,14 +190,20 @@ function ClaimFees() {
   async function claim() {
     setBusy(true);
     setMsg(null);
-    const res = await fetch("/api/solana/claim", { method: "POST" });
-    const body = await readApiJson<{ error?: string; signature?: string; explorer?: string }>(res);
-    setBusy(false);
-    if (!res.ok || !body.signature) {
-      setMsg(body.error ?? "Claim failed. Fund the in-app Solana wallet.");
-      return;
+    try {
+      const body = await postClaimCreatorFees();
+      setMsg(body.explorer);
+    } catch (cause) {
+      const text =
+        cause instanceof DOMException && cause.name === "TimeoutError"
+          ? "Claim timed out. Fund the in-app Solana wallet."
+          : cause instanceof Error
+            ? cause.message
+            : "Claim failed. Fund the in-app Solana wallet.";
+      setMsg(text);
+    } finally {
+      setBusy(false);
     }
-    setMsg(body.explorer ?? body.signature);
   }
   return (
     <div className="rounded-2xl border border-white/10 p-4">

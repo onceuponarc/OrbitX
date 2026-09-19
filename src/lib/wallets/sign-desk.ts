@@ -29,23 +29,53 @@ export async function deskSolanaKey(userId: string) {
   return loadUserKeypair(userId);
 }
 
+function signDeskBytes(key: Awaited<ReturnType<typeof deskSolanaKey>>, bytes: Buffer, versioned: boolean | "auto") {
+  if (versioned === true) {
+    const tx = VersionedTransaction.deserialize(bytes);
+    tx.sign([key]);
+    return Buffer.from(tx.serialize()).toString("base64");
+  }
+  if (versioned === false) {
+    const tx = Transaction.from(bytes);
+    tx.partialSign(key);
+    return tx.serialize().toString("base64");
+  }
+  try {
+    const tx = VersionedTransaction.deserialize(bytes);
+    tx.sign([key]);
+    return Buffer.from(tx.serialize()).toString("base64");
+  } catch {
+    const tx = Transaction.from(bytes);
+    tx.partialSign(key);
+    return tx.serialize().toString("base64");
+  }
+}
+
 /** Sign a desk-built Solana tx with the in-app key and land it. Never asks a browser wallet. */
-export async function signAndSendDeskTx(userId: string, transactionBase64: string, versioned = false) {
+export async function signAndSendDeskTx(
+  userId: string,
+  transactionBase64: string,
+  versioned: boolean | "auto" = false,
+  opts?: { confirmMs?: number },
+) {
   const key = await deskSolanaKey(userId);
   const bytes = Buffer.from(transactionBase64, "base64");
-  const signed = versioned
-    ? (() => {
-        const tx = VersionedTransaction.deserialize(bytes);
-        tx.sign([key]);
-        return Buffer.from(tx.serialize()).toString("base64");
-      })()
-    : (() => {
-        const tx = Transaction.from(bytes);
-        tx.partialSign(key);
-        return tx.serialize().toString("base64");
-      })();
+  const signed = signDeskBytes(key, bytes, versioned);
   const signature = await sendSignedTx(signed);
-  await waitForTx(signature);
+  const confirmMs = opts?.confirmMs;
+  if (confirmMs && confirmMs > 0) {
+    const confirm = waitForTx(signature);
+    const timedOut = await Promise.race([
+      confirm.then(() => false),
+      new Promise<boolean>((resolve) => {
+        setTimeout(() => resolve(true), confirmMs);
+      }),
+    ]);
+    if (timedOut) void confirm.catch(() => undefined);
+    else await confirm;
+  } else {
+    await waitForTx(signature);
+  }
   return { signature, explorer: explorerFromSig(signature), payer: key.publicKey.toBase58() };
 }
 

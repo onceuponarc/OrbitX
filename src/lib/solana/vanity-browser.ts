@@ -20,7 +20,19 @@ export async function mineVanitySecretBrowser(suffix: string, signal: AbortSigna
   const subtle = globalThis.crypto?.subtle;
   if (!subtle?.generateKey) return null;
   try {
+    let spins = 0;
     while (!signal.aborted) {
+      if ((++spins & 7) === 0) {
+        await new Promise<void>((resolve) => {
+          const ric = (
+            globalThis as unknown as {
+              requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void;
+            }
+          ).requestIdleCallback;
+          if (typeof ric === "function") ric(() => resolve(), { timeout: 16 });
+          else setTimeout(resolve, 0);
+        });
+      }
       const pair = (await subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"])) as CryptoKeyPair;
       const rawPub = new Uint8Array(await subtle.exportKey("raw", pair.publicKey));
       if (!mintEndsWith(bs58.encode(rawPub), suffix)) continue;
