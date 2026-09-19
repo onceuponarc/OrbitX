@@ -99,6 +99,16 @@ export type AutomationConfig = {
   simulation: AutomationSim;
 };
 
+/** Architecture aliases for a later contract mapping. */
+export type Trigger = {
+  kind: TriggerKind;
+  conditions: Condition[];
+  join: LogicJoin;
+};
+export type Action = RuleAction;
+export type Destination = RouteShare;
+export type FeeDistribution = RouteShare[];
+
 export const TRIGGER_META: Record<TriggerKind, { label: string; body: string; unit: string; presets: string[] }> = {
   fee_balance: {
     label: "Fee balance",
@@ -386,6 +396,20 @@ export function formatTriggerLine(rule: AutomationRule) {
   if (!first) return TRIGGER_META[rule.trigger].label;
   const extra = rule.conditions.length > 1 ? ` ${rule.join.toUpperCase()} +${rule.conditions.length - 1}` : "";
   return `${TRIGGER_META[first.metric].label} ${COMPARE_META[first.op]} ${formatConditionValue(first)}${extra}`;
+}
+
+export function formatPreset(metric: TriggerKind, value: string) {
+  if (metric === "time") {
+    if (value === "1h") return "Every hour";
+    if (value === "1d") return "Every day";
+    if (value === "1w") return "Every week";
+    return value || "Custom interval";
+  }
+  if (metric === "holders") return value;
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return value;
+  if (amount >= 1000) return `$${amount.toLocaleString("en-US")}`;
+  return `$${amount}`;
 }
 
 export function formatConditionValue(condition: Condition) {

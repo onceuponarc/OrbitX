@@ -12,6 +12,7 @@ import {
   COMPARE_OPS,
   createAction,
   createCondition,
+  formatPreset,
   lockedRouteBps,
   moveItem,
   routeAllocatedBps,
@@ -163,70 +164,96 @@ function WhenStep({ rule, onChange }: { rule: AutomationRule; onChange: (next: A
             </div>
           </div>
           {rule.conditions.map((condition, index) => (
-            <div key={condition.id} className="grid gap-2 rounded-2xl border border-white/10 p-3 sm:grid-cols-[1fr_72px_1fr_auto]">
-              <select
-                className="h-9 rounded-lg border border-white/10 bg-black/40 px-2 text-sm"
-                value={condition.metric}
-                onChange={(event) =>
-                  onChange({
-                    ...rule,
-                    conditions: rule.conditions.map((row) =>
-                      row.id === condition.id ? { ...row, metric: event.target.value as TriggerKind } : row,
-                    ),
-                  })
-                }
-              >
-                {TRIGGER_KINDS.filter((id) => id !== "manual").map((id) => (
-                  <option key={id} value={id}>
-                    {TRIGGER_META[id].label}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="h-9 rounded-lg border border-white/10 bg-black/40 px-2 text-sm"
-                value={condition.op}
-                onChange={(event) =>
-                  onChange({
-                    ...rule,
-                    conditions: rule.conditions.map((row) =>
-                      row.id === condition.id ? { ...row, op: event.target.value as CompareOp } : row,
-                    ),
-                  })
-                }
-              >
-                {COMPARE_OPS.map((op) => (
-                  <option key={op} value={op}>
-                    {COMPARE_META[op]}
-                  </option>
-                ))}
-              </select>
-              <Input
-                value={condition.value}
-                onChange={(event) =>
-                  onChange({
-                    ...rule,
-                    conditions: rule.conditions.map((row) =>
-                      row.id === condition.id ? { ...row, value: event.target.value } : row,
-                    ),
-                  })
-                }
-                placeholder={TRIGGER_META[condition.metric].presets[0] ?? ""}
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={rule.conditions.length === 1}
-                onClick={() =>
-                  onChange({ ...rule, conditions: rule.conditions.filter((row) => row.id !== condition.id) })
-                }
-              >
-                Remove
-              </Button>
+            <div key={condition.id} className="space-y-2 rounded-2xl border border-white/10 p-3">
+              <div className="grid gap-2 sm:grid-cols-[1fr_72px_1fr_auto]">
+                <select
+                  className="h-9 rounded-lg border border-white/10 bg-black/40 px-2 text-sm"
+                  value={condition.metric}
+                  onChange={(event) =>
+                    onChange({
+                      ...rule,
+                      conditions: rule.conditions.map((row) =>
+                        row.id === condition.id ? { ...row, metric: event.target.value as TriggerKind } : row,
+                      ),
+                    })
+                  }
+                >
+                  {TRIGGER_KINDS.filter((id) => id !== "manual").map((id) => (
+                    <option key={id} value={id}>
+                      {TRIGGER_META[id].label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="h-9 rounded-lg border border-white/10 bg-black/40 px-2 text-sm"
+                  value={condition.op}
+                  onChange={(event) =>
+                    onChange({
+                      ...rule,
+                      conditions: rule.conditions.map((row) =>
+                        row.id === condition.id ? { ...row, op: event.target.value as CompareOp } : row,
+                      ),
+                    })
+                  }
+                >
+                  {COMPARE_OPS.map((op) => (
+                    <option key={op} value={op}>
+                      {COMPARE_META[op]}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  value={condition.value}
+                  onChange={(event) =>
+                    onChange({
+                      ...rule,
+                      conditions: rule.conditions.map((row) =>
+                        row.id === condition.id ? { ...row, value: event.target.value } : row,
+                      ),
+                    })
+                  }
+                  placeholder={TRIGGER_META[condition.metric].presets[0] ?? ""}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={rule.conditions.length === 1}
+                  onClick={() =>
+                    onChange({ ...rule, conditions: rule.conditions.filter((row) => row.id !== condition.id) })
+                  }
+                >
+                  Remove
+                </Button>
+              </div>
+              {TRIGGER_META[condition.metric].presets.length ? (
+                <div className="flex flex-wrap gap-1">
+                  {TRIGGER_META[condition.metric].presets.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() =>
+                        onChange({
+                          ...rule,
+                          conditions: rule.conditions.map((row) =>
+                            row.id === condition.id ? { ...row, value: preset } : row,
+                          ),
+                        })
+                      }
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em]",
+                        condition.value === preset
+                          ? "border-gold/40 bg-gold/10 text-gold"
+                          : "border-white/10 text-white/45 hover:border-white/25",
+                      )}
+                    >
+                      {formatPreset(condition.metric, preset)}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               {index < rule.conditions.length - 1 ? (
-                <p className="sm:col-span-4 font-mono text-[10px] uppercase tracking-[0.16em] text-gold/70">
-                  {rule.join}
-                </p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-gold/70">{rule.join}</p>
               ) : null}
             </div>
           ))}
@@ -255,66 +282,99 @@ function DoStep({ rule, onChange }: { rule: AutomationRule; onChange: (next: Aut
         </Button>
       </div>
       {rule.actions.map((action, index) => (
-        <div
-          key={action.id}
-          draggable
-          onDragStart={(event) => event.dataTransfer.setData("text/plain", String(index))}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            const from = Number(event.dataTransfer.getData("text/plain"));
-            onChange({ ...rule, actions: moveItem(rule.actions, from, index) });
-          }}
-          className="rounded-2xl border border-white/10 bg-black/20 p-3"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] text-white/30">#{index + 1}</span>
-            <select
-              className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-black/40 px-2 text-sm"
-              value={action.kind}
-              onChange={(event) =>
-                onChange({
-                  ...rule,
-                  actions: rule.actions.map((row) =>
-                    row.id === action.id ? { ...row, kind: event.target.value as (typeof ACTION_KINDS)[number] } : row,
-                  ),
-                })
+        <div key={action.id}>
+          {index > 0 ? (
+            <p className="py-1 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-gold/50">↓</p>
+          ) : null}
+          <div
+            draggable
+            onDragStart={(event) => event.dataTransfer.setData("text/plain", String(index))}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              const from = Number(event.dataTransfer.getData("text/plain"));
+              onChange({ ...rule, actions: moveItem(rule.actions, from, index) });
+            }}
+            className="rounded-2xl border border-white/10 bg-black/20 p-3"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[10px] text-white/30">#{index + 1}</span>
+              <select
+                className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-black/40 px-2 text-sm"
+                value={action.kind}
+                onChange={(event) =>
+                  onChange({
+                    ...rule,
+                    actions: rule.actions.map((row) =>
+                      row.id === action.id ? { ...row, kind: event.target.value as (typeof ACTION_KINDS)[number] } : row,
+                    ),
+                  })
+                }
+              >
+                {ACTION_KINDS.map((id) => (
+                  <option key={id} value={id}>
+                    {ACTION_META[id].label}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={index === 0}
+                onClick={() => onChange({ ...rule, actions: moveItem(rule.actions, index, index - 1) })}
+              >
+                Up
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={index === rule.actions.length - 1}
+                onClick={() => onChange({ ...rule, actions: moveItem(rule.actions, index, index + 1) })}
+              >
+                Down
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => onChange({ ...rule, actions: rule.actions.filter((row) => row.id !== action.id) })}
+              >
+                Remove
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-white/40">{ACTION_META[action.kind].body}</p>
+            <Field
+              label={
+                action.kind === "trigger_rule"
+                  ? "Target rule"
+                  : action.kind === "custom"
+                    ? "Custom instruction"
+                    : "Action note"
               }
+              className="mt-3"
             >
-              {ACTION_KINDS.map((id) => (
-                <option key={id} value={id}>
-                  {ACTION_META[id].label}
-                </option>
-              ))}
-            </select>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={index === 0}
-              onClick={() => onChange({ ...rule, actions: moveItem(rule.actions, index, index - 1) })}
-            >
-              Up
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={index === rule.actions.length - 1}
-              onClick={() => onChange({ ...rule, actions: moveItem(rule.actions, index, index + 1) })}
-            >
-              Down
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => onChange({ ...rule, actions: rule.actions.filter((row) => row.id !== action.id) })}
-            >
-              Remove
-            </Button>
+              <Input
+                value={action.note}
+                onChange={(event) =>
+                  onChange({
+                    ...rule,
+                    actions: rule.actions.map((row) =>
+                      row.id === action.id ? { ...row, note: event.target.value } : row,
+                    ),
+                  })
+                }
+                placeholder={
+                  action.kind === "trigger_rule"
+                    ? "Name of another local rule"
+                    : action.kind === "buyback" || action.kind === "add_liquidity"
+                      ? "Optional size note — not executed"
+                      : "Optional local note"
+                }
+              />
+            </Field>
           </div>
-          <p className="mt-2 text-xs text-white/40">{ACTION_META[action.kind].body}</p>
         </div>
       ))}
     </div>
@@ -337,12 +397,15 @@ function RouteStep({
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/45">Route</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/45">Claim fees → Distribute</p>
           <p className="mt-1 text-sm text-white/50">Split after claim. OrbitX stays locked at 25%.</p>
         </div>
         <div className="text-right font-mono text-[11px] uppercase tracking-[0.14em]">
           <p className={over ? "text-heat" : "text-white/70"}>Allocated {formatBps(allocated)}</p>
           <p className={over ? "text-heat" : remaining ? "text-gold" : "text-buy"}>Remaining {formatBps(remaining)}</p>
+          <p className={over ? "text-heat" : allocated === 10_000 ? "text-buy" : "text-white/50"}>
+            Total {formatBps(allocated)}
+          </p>
         </div>
       </div>
       <ul className="mt-4 space-y-2">

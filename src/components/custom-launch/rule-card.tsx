@@ -17,6 +17,7 @@ export function RuleCard({
   onEdit,
   onDuplicate,
   onToggle,
+  onRename,
   onDelete,
 }: {
   rule: AutomationRule;
@@ -25,6 +26,7 @@ export function RuleCard({
   onEdit: () => void;
   onDuplicate: () => void;
   onToggle: () => void;
+  onRename: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -62,8 +64,14 @@ export function RuleCard({
         <Button type="button" size="sm" variant="outline" onClick={onEdit}>
           Edit
         </Button>
+        <Button type="button" size="sm" variant="outline" onClick={onRename}>
+          Rename
+        </Button>
         <Button type="button" size="sm" variant="outline" onClick={onDuplicate}>
           Duplicate
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={onSelect}>
+          View details
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onToggle}>
           {rule.status === "active" ? "Disable" : "Enable"}

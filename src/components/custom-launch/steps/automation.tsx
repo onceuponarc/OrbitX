@@ -15,10 +15,16 @@ import {
   COMPARE_META,
   createRule,
   duplicateRule,
+  formatActionLine,
+  formatDestinationLine,
+  formatTriggerLine,
+  RULE_STATUS_META,
   RULE_TEMPLATES,
   TRIGGER_META,
   type AutomationRule,
 } from "@/lib/custom-launch/automation";
+import { formatBps } from "@/lib/custom-launch/schema";
+import { ORBITX_PROTOCOL, shortenOrbitxDestination } from "@/lib/custom-launch/protocol";
 
 export function AutomationStep() {
   const { draft, update } = useCustomLaunch();
@@ -52,7 +58,10 @@ export function AutomationStep() {
     <section className="space-y-4">
       <div className="ox-console rounded-[1.4rem] p-5 lg:p-6">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-gold/80">06 · Automation Engine</p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight">Define what your token does automatically</h2>
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight">Automation engine</h2>
+        <p className="mt-2 max-w-3xl text-lg font-medium text-white/80">
+          Define what your token does automatically.
+        </p>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-white/55">
           Build WHEN → CONDITION → ACTION → DESTINATION rules in this browser. The engine is a
           configuration surface only — it does not claim fees, move funds, or arm a job.
@@ -86,7 +95,7 @@ export function AutomationStep() {
           {automation.rules.length} rule{automation.rules.length === 1 ? "" : "s"}
         </p>
         <Button type="button" onClick={createBlank}>
-          Create rule
+          + Create Rule
         </Button>
       </div>
 
@@ -126,6 +135,10 @@ export function AutomationStep() {
                   status: rule.status === "active" ? "paused" : "active",
                 })
               }
+              onRename={() => {
+                setSelectedId(rule.id);
+                setEditingId(rule.id);
+              }}
               onDelete={() => {
                 const next = automation.rules.filter((item) => item.id !== rule.id);
                 setRules(next);
@@ -159,11 +172,46 @@ export function AutomationStep() {
 
       <section className="ox-console rounded-[1.35rem] p-5">
         <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-gold/80">Automation safety</p>
-        <ul className="mt-3 space-y-2 text-sm text-white/60">
-          <li>Automation will only execute when the configured conditions are satisfied.</li>
-          <li>Review all destination wallets before a later deployment phase.</li>
-          <li>This screen does not move funds, claim fees, or schedule an on-chain job.</li>
-        </ul>
+        <p className="mt-2 text-sm text-white/55">
+          Automation will only execute when the configured conditions are satisfied. Review all
+          destination wallets before a later deployment phase. These are UI explanations only.
+        </p>
+        {selected ? (
+          <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/35">Current status</dt>
+              <dd className="mt-1">{RULE_STATUS_META[selected.status]}</dd>
+            </div>
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/35">Trigger conditions</dt>
+              <dd className="mt-1">{formatTriggerLine(selected)}</dd>
+            </div>
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/35">Actions</dt>
+              <dd className="mt-1">{formatActionLine(selected)}</dd>
+            </div>
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/35">Estimated allocation</dt>
+              <dd className="mt-1">{formatDestinationLine(selected)}</dd>
+            </div>
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/35">Max execution</dt>
+              <dd className="mt-1">${selected.maxExecution} · preview cap</dd>
+            </div>
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/35">Cooldown / frequency</dt>
+              <dd className="mt-1">{selected.cooldown}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/35">Destination wallets</dt>
+              <dd className="mt-1 font-mono text-xs text-white/70">
+                OrbitX {shortenOrbitxDestination(ORBITX_PROTOCOL.destination)} · {formatBps(ORBITX_PROTOCOL.allocationBps)} locked
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="mt-3 text-sm text-white/45">Create a rule to review its safety tape.</p>
+        )}
       </section>
 
       <section className="ox-console rounded-[1.35rem] p-5">
@@ -185,6 +233,8 @@ export function AutomationStep() {
                   <th className="pb-2 pr-4">Condition</th>
                   <th className="pb-2 pr-4">Join</th>
                   <th className="pb-2 pr-4">Action</th>
+                  <th className="pb-2 pr-4">Destination</th>
+                  <th className="pb-2 pr-4">Percentage</th>
                   <th className="pb-2 pr-4">Amount</th>
                   <th className="pb-2">Cooldown</th>
                 </tr>
@@ -199,6 +249,13 @@ export function AutomationStep() {
                   </td>
                   <td className="pr-4 py-2">{selected.join.toUpperCase()}</td>
                   <td className="pr-4 py-2">{selected.actions.map((row) => ACTION_META[row.kind].label).join(" → ")}</td>
+                  <td className="pr-4 py-2">{formatDestinationLine(selected)}</td>
+                  <td className="pr-4 py-2">
+                    {selected.routes
+                      .filter((row) => row.bps > 0)
+                      .map((row) => formatBps(row.bps))
+                      .join(" / ") || "—"}
+                  </td>
                   <td className="pr-4 py-2">${selected.maxExecution}</td>
                   <td className="py-2">{selected.cooldown}</td>
                 </tr>

@@ -235,8 +235,12 @@ assert(
 
 assert(autoSrc.includes("export type AutomationRule"), "AutomationRule type exists");
 assert(autoSrc.includes("TRIGGER_KINDS"), "trigger kinds exist");
-assert(autoStep.includes("Create rule"), "automation can create rules");
+assert(autoStep.includes("+ Create Rule") || autoStep.includes("Create rule"), "automation can create rules");
 assert(autoStep.includes("RuleBuilder"), "automation mounts the rule builder");
+assert(autoStep.includes("Define what your token does automatically"), "automation uses the engine subtitle");
+assert(autoSrc.includes("export type Trigger"), "Trigger type alias exists");
+assert(autoSrc.includes("export type FeeDistribution"), "FeeDistribution type alias exists");
+assert(autoSrc.includes("export type Milestone"), "Milestone type exists");
 assert(autoStep.includes("MilestoneTimeline"), "automation has milestones");
 assert(autoStep.includes("AutomationPreview"), "automation has simulation preview");
 assert(autoStep.includes("Simulation / Preview") || autoSrc.includes("simulateRule"), "preview stays labeled as simulation");
