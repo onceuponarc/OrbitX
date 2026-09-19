@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 const PLAY = [
   { n: "01", t: "Sign in with X", d: "Your desk wallet, avatar, and handle come straight from the account." },
-  { n: "02", t: "Pick a chain", d: "Solana, Arc, or Robinhood Chain — same desk, same flow, no wallet extension." },
+  { n: "02", t: "Pick a chain", d: "Solana and Robinhood Chain are live. Arc is still in beta. Same desk, same flow, no wallet extension." },
   { n: "03", t: "Trade the curve", d: "Live the moment it lands. No seeded AMM required at create." },
   { n: "04", t: "Graduate", d: "Hit the target and the reserved supply seeds a deeper pool." },
 ];

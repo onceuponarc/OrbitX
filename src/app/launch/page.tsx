@@ -20,9 +20,9 @@ const LANES = [
   {
     href: "/launch/robinhood",
     label: "Robinhood Chain",
-    status: "Pons v2 · beta",
-    body: "Curve live at create. Trades feed it, then a locked Uniswap v4 LP. Fund the in-app RH wallet with ETH.",
-    beta: true,
+    status: "Pons v2 · live",
+    body: "Fully live, out of beta. Curve live at create. Trades feed it, then a locked Uniswap v4 LP. Fund the in-app RH wallet with ETH.",
+    beta: false,
   },
 ];
 

@@ -27,8 +27,9 @@ export function OrbitHero({
           Launch where your community already trades.
         </h1>
         <p className="mt-5 max-w-md text-base leading-7 text-white/60">
-          OrbitX signs every launch from an in-app desk wallet — no Phantom, no MetaMask. Pick a chain, set your
-          terms, and your token is tradable the moment it lands.
+          OrbitX signs every launch from an in-app desk wallet — no Phantom, no MetaMask. Solana and Robinhood
+          Chain launches are fully live. Pick a chain, set your terms, and your token is tradable the moment it
+          lands.
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <Link

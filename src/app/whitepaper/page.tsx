@@ -97,8 +97,9 @@ export default function WhitepaperPage() {
             from the vault.
           </p>
           <p>
-            <strong className="text-white">Robinhood Chain</strong> — launches print on Pons v2, a spot curve that&apos;s
-            tradable from block one. Volume feeds the curve, then graduates into a locked Uniswap v4 LP.
+            <strong className="text-white">Robinhood Chain</strong> — launches are fully live and out of beta. They
+            print on Pons v2, a spot curve that&apos;s tradable from block one. Volume feeds the curve, then
+            graduates into a locked Uniswap v4 LP.
           </p>
         </Section>
 

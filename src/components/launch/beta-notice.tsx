@@ -1,12 +1,11 @@
-export function BetaNotice({ chain }: { chain: "arc" | "robinhood" }) {
-  const label = chain === "arc" ? "Arc" : "Robinhood Chain";
+export function BetaNotice({ chain }: { chain: "arc" }) {
+  void chain;
   return (
     <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-100/90">
-      <p className="font-medium text-amber-300">Beta — {label} launches aren&apos;t fully tested yet</p>
+      <p className="font-medium text-amber-300">Beta — Arc launches aren&apos;t fully tested yet</p>
       <p className="mt-1 text-amber-100/70">
-        Only Solana has been tested end to end on OrbitX — launches, trading, and NFT cards all work there
-        completely. {label} is still in beta; we can&apos;t guarantee everything works correctly right now. The
-        team is testing this fully this week.
+        Solana and Robinhood Chain are live end to end. Arc is still in beta; we can&apos;t guarantee everything
+        works correctly right now. The team is testing this fully this week.
       </p>
     </div>
   );
