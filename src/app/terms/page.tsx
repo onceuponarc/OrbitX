@@ -15,7 +15,7 @@ export default function TermsPage() {
       <p className="text-white/65">
         Launches sign from an in-app desk wallet OrbitX generates and holds server-side on your behalf — that&apos;s what
         lets you launch and trade without a separate wallet extension. You can export that wallet&apos;s private key
-        from Wallet → Export keys at any time. Once exported, or if you send funds to any address, you own the risk
+        or recovery phrase from Wallet → Export keys at any time. Once exported, or if you send funds to any address, you own the risk
         of loss, theft, and irreversible transfers.
       </p>
       <p className="text-white/65">

@@ -2,6 +2,7 @@ import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 import { createHash } from "node:crypto";
 import { openSecret, sealSecret } from "@/lib/crypto/secret-box";
+import { unpackDeskSecret } from "@/lib/wallets/desk-secret";
 
 export function generateKeypair(): Keypair {
   return Keypair.generate();
@@ -24,7 +25,7 @@ export function sealKeypair(keypair: Keypair): string {
 }
 
 export function openKeypair(ciphertext: string): Keypair {
-  return decodeSecret(openSecret(ciphertext));
+  return decodeSecret(unpackDeskSecret(openSecret(ciphertext)).secret);
 }
 
 export function protocolKeypair(): Keypair {
