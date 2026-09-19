@@ -61,16 +61,28 @@ const MODE_DESTINATIONS: Record<LaunchStrategyId, FeeDestinationId[]> = {
   custom: [...FEE_DESTINATION_IDS],
 };
 
-const PRESET_WEIGHTS: Partial<Record<FeeDestinationId, number>> = {
-  creator: 2500,
-  holders: 2000,
-  liquidity: 1500,
-  buyback: 1500,
-  burn: 1000,
-  charity: 1000,
-  treasury: 1000,
-  community: 1000,
-  custom: 500,
+const PRESET_SPLITS: Partial<Record<LaunchStrategyId, Partial<Record<FeeDestinationId, number>>>> = {
+  standard: { creator: 2500, holders: 2000, liquidity: 1500, treasury: 1500 },
+  flywheel: { buyback: 2000, liquidity: 1500, burn: 1500, treasury: 1500, holders: 1000 },
+  bagwork: { creator: 2500, community: 3000, holders: 2000 },
+  holders: { creator: 2500, holders: 3500, liquidity: 1500 },
+  charity: { creator: 2500, charity: 2000, holders: 1500, liquidity: 1500 },
+  buyback: { creator: 2500, buyback: 3500, liquidity: 1500 },
+  burn: { creator: 2500, burn: 3500, liquidity: 1500 },
+  liquidity: { creator: 3500, liquidity: 4000 },
+  treasury: { creator: 3500, treasury: 4000 },
+  community: { creator: 2500, community: 3000, holders: 2000 },
+  custom: {
+    creator: 1500,
+    holders: 1000,
+    liquidity: 1000,
+    buyback: 800,
+    burn: 700,
+    charity: 500,
+    treasury: 800,
+    community: 700,
+    custom: 500,
+  },
 };
 
 export function visibleFeeDestinations(mode: CustomLaunchModeState): FeeDestinationId[] {
@@ -84,14 +96,17 @@ export function visibleFeeDestinations(mode: CustomLaunchModeState): FeeDestinat
 export function defaultFeeShares(mode: CustomLaunchModeState): Partial<Record<FeeDestinationId, number>> {
   const dests = visibleFeeDestinations(mode).filter((id) => id !== "orbitx");
   const remainder = 10_000 - ORBITX_PROTOCOL.allocationBps;
-  const weightTotal = dests.reduce((sum, id) => sum + (PRESET_WEIGHTS[id] ?? 1000), 0) || dests.length;
+  const preset = PRESET_SPLITS[mode.primary] ?? {};
   const shares: Partial<Record<FeeDestinationId, number>> = {};
   let used = 0;
   dests.forEach((id, index) => {
-    const weight = PRESET_WEIGHTS[id] ?? 1000;
-    const bps = index === dests.length - 1 ? remainder - used : Math.round((weight / weightTotal) * remainder);
-    shares[id] = Math.max(0, bps);
-    used += shares[id] ?? 0;
+    if (index === dests.length - 1) {
+      shares[id] = Math.max(0, remainder - used);
+      return;
+    }
+    const bps = preset[id] ?? Math.floor(remainder / dests.length);
+    shares[id] = bps;
+    used += bps;
   });
   return shares;
 }
