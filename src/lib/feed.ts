@@ -20,6 +20,9 @@ export type FeedLaunch = {
   priceUi: number;
   changePct: number;
   volumeUi: number;
+  volumeDayUsd: number;
+  volumeWeekUsd: number;
+  volumeTotalUsd: number;
   holders: number;
   spark: number[];
   mcapUi: number;
@@ -59,7 +62,11 @@ export function filterFeed(launches: FeedLaunch[], tab: FeedTab): FeedLaunch[] {
     case "trending":
       return [...launches]
         .filter((item) => item.status === "live" || item.status === "graduated")
-        .sort((a, b) => b.volumeUi - a.volumeUi || +new Date(b.createdAt) - +new Date(a.createdAt));
+        .sort(
+          (a, b) =>
+            (b.volumeDayUsd || b.volumeUi) - (a.volumeDayUsd || a.volumeUi) ||
+            +new Date(b.createdAt) - +new Date(a.createdAt),
+        );
     case "curve":
       return [...live].sort((a, b) => b.progressBps - a.progressBps);
     case "bonded":
@@ -184,17 +191,61 @@ function sparkFrom(prices: number[], fallback: number): number[] {
   return Array.from({ length: 8 }, (_, i) => seed * (1 + i * 0.004));
 }
 
+function tradeUsd(trade: RawTrade, pairLabel: string): number {
+  const quoteDec = trade.quoteDecimals || 6;
+  const quoteUi =
+    trade.side === "buy" ? trade.amountIn / 10 ** quoteDec : trade.amountOut / 10 ** quoteDec;
+  const baseDec = trade.baseDecimals || 6;
+  const tokensUi =
+    trade.side === "buy" ? trade.amountOut / 10 ** baseDec : trade.amountIn / 10 ** baseDec;
+  if (trade.priceUsd && tokensUi > 0) return tokensUi * trade.priceUsd;
+  if (pairLabel.toUpperCase().includes("USD")) return quoteUi;
+  return quoteUi;
+}
+
 export function enrichLaunch(
-  base: Omit<FeedLaunch, "priceUi" | "changePct" | "volumeUi" | "holders" | "spark" | "mcapUi" | "progressBps"> &
-    Partial<Pick<FeedLaunch, "priceUi" | "changePct" | "volumeUi" | "holders" | "spark" | "mcapUi" | "progressBps">>,
+  base: Omit<
+    FeedLaunch,
+    | "priceUi"
+    | "changePct"
+    | "volumeUi"
+    | "volumeDayUsd"
+    | "volumeWeekUsd"
+    | "volumeTotalUsd"
+    | "holders"
+    | "spark"
+    | "mcapUi"
+    | "progressBps"
+  > &
+    Partial<
+      Pick<
+        FeedLaunch,
+        | "priceUi"
+        | "changePct"
+        | "volumeUi"
+        | "volumeDayUsd"
+        | "volumeWeekUsd"
+        | "volumeTotalUsd"
+        | "holders"
+        | "spark"
+        | "mcapUi"
+        | "progressBps"
+      >
+    >,
   trades: RawTrade[],
   opts?: { curveQuoteUi?: number; graduateUi?: number; supplyUi?: number },
 ): FeedLaunch {
   const fallback = startPrice(base.pairLabel);
   const prices: number[] = [];
   let volume = 0;
+  let volumeDayUsd = 0;
+  let volumeWeekUsd = 0;
+  let volumeTotalUsd = 0;
   const holders = new Set<string>();
   let lastSide: "buy" | "sell" | undefined;
+  const now = Date.now();
+  const dayAgo = now - 24 * 60 * 60 * 1000;
+  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
   for (const trade of trades) {
     const quoteDec = trade.quoteDecimals || 6;
     const quoteUi =
@@ -205,6 +256,11 @@ export function enrichLaunch(
     const price = trade.priceUsd || (tokensUi > 0 ? quoteUi / tokensUi : 0);
     if (price > 0) prices.push(price);
     volume += quoteUi;
+    const usd = tradeUsd(trade, base.pairLabel);
+    volumeTotalUsd += usd;
+    const at = +new Date(trade.at);
+    if (Number.isFinite(at) && at >= weekAgo) volumeWeekUsd += usd;
+    if (Number.isFinite(at) && at >= dayAgo) volumeDayUsd += usd;
     if (trade.trader) holders.add(trade.trader);
     lastSide = trade.side === "sell" ? "sell" : "buy";
   }
@@ -214,11 +270,15 @@ export function enrichLaunch(
   const supply = opts?.supplyUi ?? 1_000_000_000;
   const graduate = opts?.graduateUi ?? (base.pairLabel.toUpperCase().includes("USD") ? 5000 : 2);
   const raised = opts?.curveQuoteUi ?? 0;
+  const volumeUi = volumeDayUsd || volumeTotalUsd || volume;
   return {
     ...base,
     priceUi: price,
     changePct,
-    volumeUi: volume,
+    volumeUi,
+    volumeDayUsd,
+    volumeWeekUsd: Math.max(volumeWeekUsd, volumeDayUsd),
+    volumeTotalUsd: Math.max(volumeTotalUsd, volumeWeekUsd, volumeDayUsd),
     holders: holders.size,
     spark: sparkFrom(prices, fallback),
     mcapUi: price * supply * 0.000001 * 1_000_000, // keep finite; display uses price * implied float

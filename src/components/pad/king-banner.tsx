@@ -24,7 +24,7 @@ export function KingBanner({ launch }: { launch: FeedLaunch }) {
             <span className={cn("font-semibold tabular-nums", up ? "text-buy" : "text-sell")}>
               {formatPct(launch.changePct)}
             </span>
-            <span>{formatUsd(launch.volumeUi)} vol</span>
+            <span>{formatUsd(launch.volumeDayUsd || launch.volumeUi)} 24h</span>
             <span className="hidden sm:inline">score {deskScore(launch).toFixed(1)}</span>
           </p>
         </div>

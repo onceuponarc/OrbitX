@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { FeedLaunch } from "@/lib/feed";
 import { tickerHue } from "@/lib/feed";
-import { formatPct, formatUsd } from "@/lib/format";
+import { formatUsd } from "@/lib/format";
 
 export function TokenDeck({ launches }: { launches: FeedLaunch[] }) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -102,7 +102,6 @@ export function TokenDeck({ launches }: { launches: FeedLaunch[] }) {
 
 function TokenGlossCard({ launch }: { launch: FeedLaunch }) {
   const hue = tickerHue(launch.ticker);
-  const up = launch.changePct >= 0;
   const progress = Math.min(100, Math.max(0, launch.progressBps / 100));
 
   return (
@@ -146,9 +145,9 @@ function TokenGlossCard({ launch }: { launch: FeedLaunch }) {
           <h3 className="mt-2 text-5xl font-semibold tracking-tight">${launch.ticker}</h3>
           <p className="mt-1 truncate text-sm text-white/55">{launch.title}</p>
           <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-            <Stat label="Price" value={formatUsd(launch.priceUi, 4)} />
-            <Stat label="Volume" value={formatUsd(launch.volumeUi)} />
-            <Stat label={up ? "Up" : "Down"} value={formatPct(launch.changePct)} />
+            <Stat label="24h" value={formatUsd(launch.volumeDayUsd || launch.volumeUi)} />
+            <Stat label="7d" value={formatUsd(launch.volumeWeekUsd || launch.volumeUi)} />
+            <Stat label="Total" value={formatUsd(launch.volumeTotalUsd || launch.volumeUi)} />
           </div>
           <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/10">
             <div className="h-full bg-white" style={{ width: `${launch.status === "graduated" ? 100 : progress}%` }} />

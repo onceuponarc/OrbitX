@@ -28,7 +28,7 @@ function Avatar({ launch }: { launch: FeedLaunch }) {
 
 export function TokenRow({ launch }: { launch: FeedLaunch }) {
   const up = launch.changePct >= 0;
-  const hot = launch.volumeUi >= 100 || launch.changePct >= 20;
+  const hot = (launch.volumeDayUsd || launch.volumeUi) >= 100 || launch.changePct >= 20;
   const dest = launchHref(launch);
   const chain = launchChainLabel(launch.chain);
   const offPlatform = launch.chain !== "arc";
@@ -63,7 +63,7 @@ export function TokenRow({ launch }: { launch: FeedLaunch }) {
         <p className={cn("text-[11px] tabular-nums", up ? "text-buy" : "text-sell")}>{formatPct(launch.changePct)}</p>
       </Link>
       <p className="hidden w-20 shrink-0 text-right text-sm tabular-nums text-parchment/80 sm:block">
-        {formatUsd(launch.volumeUi)}
+        {formatUsd(launch.volumeDayUsd || launch.volumeUi)}
       </p>
       <div className="flex shrink-0 flex-col items-end gap-1">
         <span className="hidden sm:inline">
@@ -112,7 +112,7 @@ export function LaunchCard({ launch }: { launch: FeedLaunch }) {
           </div>
           <CurveMeter progressBps={launch.progressBps} graduated={launch.status === "graduated"} />
           <div className="mt-auto flex flex-wrap gap-1.5 text-[11px] text-parchment/55">
-            <span>{formatUsd(launch.volumeUi)} vol</span>
+            <span>{formatUsd(launch.volumeDayUsd || launch.volumeUi)} 24h</span>
             <span>· {launch.holders} holders</span>
             <span>· {launch.pairLabel}</span>
           </div>

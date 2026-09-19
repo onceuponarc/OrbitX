@@ -26,9 +26,8 @@ const PLAY = [
 ];
 
 export default async function DropPage() {
-  const [{ launches }, cards] = await Promise.all([loadPadMarket(), viewAllCards().catch(() => [])]);
+  const [{ launches, volume }, cards] = await Promise.all([loadPadMarket(), viewAllCards().catch(() => [])]);
   const live = launches.filter((row) => row.status === "live").length;
-  const volume = launches.reduce((sum, row) => sum + row.volumeUi, 0);
 
   return (
     <div className="space-y-8 lg:mx-auto lg:max-w-3xl lg:text-center">
@@ -49,10 +48,15 @@ export default async function DropPage() {
             Mint a card
           </Link>
         </div>
-        <dl className="mt-6 grid grid-cols-3 gap-2">
+        <dl className="mt-6 grid grid-cols-2 gap-2">
           <Stat k="Live" v={String(live)} />
-          <Stat k="Volume" v={formatUsd(volume)} />
           <Stat k="NFT cards" v={String(cards.length)} />
+        </dl>
+        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">Token volume</p>
+        <dl className="mt-1.5 grid grid-cols-3 gap-2">
+          <Stat k="24h" v={formatUsd(volume.dayUsd)} />
+          <Stat k="7d" v={formatUsd(volume.weekUsd)} />
+          <Stat k="Total" v={formatUsd(volume.totalUsd)} />
         </dl>
       </section>
 

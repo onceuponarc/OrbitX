@@ -36,7 +36,7 @@ export default async function WeekPage() {
           <p className="mt-2 text-3xl font-semibold">${leader.ticker}</p>
           <p className="text-black/50">{leader.title}</p>
           <p className="mt-2 text-sm text-black/55">
-            Score {deskScore(leader).toFixed(2)} · {formatUsd(leader.volumeUi)} vol
+            Score {deskScore(leader).toFixed(2)} · {formatUsd(leader.volumeWeekUsd || leader.volumeUi)} 7d vol
           </p>
         </Link>
       ) : (
@@ -53,7 +53,7 @@ export default async function WeekPage() {
             <Link href={`/story/${row.slug}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/5">
               <span className="font-mono text-white/35">{String(i + 1).padStart(2, "0")}</span>
               <span className="flex-1 font-semibold">${row.ticker}</span>
-              <span className="text-sm text-white/45">{formatUsd(row.volumeUi)}</span>
+              <span className="text-sm text-white/45">{formatUsd(row.volumeWeekUsd || row.volumeUi)}</span>
               <span className="font-mono text-sm tabular-nums text-white/70">{deskScore(row).toFixed(2)}</span>
             </Link>
           </li>
