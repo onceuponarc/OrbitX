@@ -7,6 +7,7 @@ import {
   CUSTOM_LAUNCH_STEPS,
   formatBps,
   formatHours,
+  launchModeSummary,
   launchModeTitle,
   stepStatus,
 } from "@/lib/custom-launch/schema";
@@ -24,7 +25,7 @@ export function ReviewStep() {
       <div className="grid gap-3 sm:grid-cols-3">
         <MetricTile label="Configured" value={`${configured} / ${total}`} tone={ready ? "live" : "warn"} />
         <MetricTile label="Chain" value={meta.longLabel} hint="Custom Launch" />
-        <MetricTile label="Mode" value={launchModeTitle(draft.mode.kind)} />
+        <MetricTile label="Mode" value={launchModeTitle(draft.mode)} hint={launchModeSummary(draft.mode)} />
       </div>
       <ol className="mt-5 space-y-2">
         {CUSTOM_LAUNCH_STEPS.filter((step) => step.id !== "review" && step.id !== "deploy").map((step) => {
@@ -99,7 +100,7 @@ function summaryFor(
 ) {
   switch (id) {
     case "mode":
-      return launchModeTitle(draft.mode.kind);
+      return launchModeSummary(draft.mode);
     case "token":
       return draft.token.name ? `${draft.token.name} ($${draft.token.symbol || "—"})` : "Name and ticker required";
     case "economics":

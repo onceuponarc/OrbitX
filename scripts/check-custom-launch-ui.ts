@@ -60,4 +60,58 @@ assert(solana.includes('fetch("/api/solana/launch"'), "Solana Normal Launch API 
 assert(arc.includes('fetch("/api/arc/launch"'), "Arc Normal Launch API call stays");
 assert(rh.includes('fetch("/api/rh/launch"'), "RH Normal Launch API call stays");
 
-console.log(JSON.stringify({ ok: true, customLaunch: "ui-foundation" }));
+const modes = readFileSync(new URL("../src/lib/custom-launch/modes.ts", import.meta.url), "utf8");
+const modeStep = readFileSync(new URL("../src/components/custom-launch/steps/launch-mode.tsx", import.meta.url), "utf8");
+const preview = readFileSync(new URL("../src/components/custom-launch/strategy-preview.tsx", import.meta.url), "utf8");
+const details = readFileSync(new URL("../src/components/custom-launch/mode-details.tsx", import.meta.url), "utf8");
+const card = readFileSync(new URL("../src/components/custom-launch/mode-card.tsx", import.meta.url), "utf8");
+
+for (const name of [
+  "Standard Custom",
+  "Flywheel",
+  "Bag Work",
+  "Holder Rewards",
+  "Charity",
+  "Buyback",
+  "Burn",
+  "Liquidity",
+  "Treasury",
+  "Community",
+  "Custom Strategy",
+]) {
+  assert(modes.includes(`name: "${name}"`), `catalog includes ${name}`);
+}
+
+assert(modes.includes("modules:"), "modes can be stacked");
+assert(modes.includes("setPrimaryStrategy"), "primary strategy helper exists");
+assert(modes.includes("toggleStrategyModule"), "module toggle helper exists");
+assert(modes.includes("composeStrategyPreview"), "preview composition exists");
+assert(modeStep.includes("StrategyPreview"), "launch mode mounts strategy preview");
+assert(modeStep.includes("ModeDetails"), "launch mode mounts mode details");
+assert(modeStep.includes("Add module") || card.includes("Add module"), "cards can add modules");
+assert(preview.includes("Fee router"), "preview shows the fee router");
+assert(preview.includes("Mock router only"), "preview must not claim execution");
+assert(details.includes("These knobs only reshape the local preview"), "details stay mock");
+assert(!modeStep.includes("/api/"), "launch mode must not call APIs");
+assert(!modes.includes("sendTransaction"), "mode catalog must not send txs");
+
+const { composeStrategyPreview, createLaunchModeState, setPrimaryStrategy, toggleStrategyModule } =
+  await import("../src/lib/custom-launch/modes.ts");
+
+let stack = createLaunchModeState();
+assert(stack.primary === "standard", "standard is the default primary");
+stack = setPrimaryStrategy(stack, "flywheel");
+stack = toggleStrategyModule(stack, "holders");
+stack = toggleStrategyModule(stack, "charity");
+const flywheelMix = composeStrategyPreview(stack);
+assert(flywheelMix.some((lane) => lane.label.toLowerCase().includes("holder")), "flywheel + holders preview updates");
+assert(flywheelMix.some((lane) => lane.label.toLowerCase().includes("charity")), "flywheel + charity preview updates");
+assert(flywheelMix.reduce((sum, lane) => sum + lane.bps, 0) === 10_000, "preview lanes renormalize to 100%");
+
+stack = setPrimaryStrategy(createLaunchModeState(), "buyback");
+stack = toggleStrategyModule(stack, "burn");
+stack = toggleStrategyModule(stack, "liquidity");
+const buybackMix = composeStrategyPreview(stack);
+assert(buybackMix.length >= 3, "buyback + burn + liquidity can stack");
+
+console.log(JSON.stringify({ ok: true, customLaunch: "mode-system" }));

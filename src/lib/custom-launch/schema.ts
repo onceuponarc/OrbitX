@@ -1,4 +1,5 @@
 import type { PrintableChain } from "@onceupon/config/solana";
+import { createLaunchModeState, type CustomLaunchModeState } from "@/lib/custom-launch/modes";
 
 export const CUSTOM_LAUNCH_STEPS = [
   { id: "mode", label: "Launch Mode", short: "Mode" },
@@ -13,10 +14,27 @@ export const CUSTOM_LAUNCH_STEPS = [
 
 export type CustomLaunchStepId = (typeof CUSTOM_LAUNCH_STEPS)[number]["id"];
 
-export type LaunchModeKind = "curve" | "liquidity" | "auction" | "controlled";
 export type PriceDiscovery = "curve" | "fixed" | "dutch";
 export type FeeSweepCadence = "off" | "daily" | "weekly";
 export type QuotePreference = "native" | "usdc";
+
+export type {
+  CustomLaunchModeState,
+  LaunchStrategyId,
+  StrategyIntent,
+} from "@/lib/custom-launch/modes";
+export {
+  composeStrategyPreview,
+  createLaunchModeState,
+  findStrategy,
+  inspectStrategy,
+  LAUNCH_STRATEGIES,
+  launchModeSummary,
+  launchModeTitle,
+  selectedStrategyIds,
+  setPrimaryStrategy,
+  toggleStrategyModule,
+} from "@/lib/custom-launch/modes";
 
 export type CustomChainMeta = {
   id: PrintableChain;
@@ -62,40 +80,10 @@ export const CUSTOM_CHAIN_META: Record<PrintableChain, CustomChainMeta> = {
   },
 };
 
-export const LAUNCH_MODE_OPTIONS: {
-  id: LaunchModeKind;
-  title: string;
-  body: string;
-}[] = [
-  {
-    id: "curve",
-    title: "Bonding curve",
-    body: "Price discovery on a curve. Supply enters as the book fills.",
-  },
-  {
-    id: "liquidity",
-    title: "Liquidity first",
-    body: "Seed depth before public flow. Secondary markets start with a floor.",
-  },
-  {
-    id: "auction",
-    title: "Auction",
-    body: "Timed discovery. Dutch or fixed windows set the opening print.",
-  },
-  {
-    id: "controlled",
-    title: "Controlled issuance",
-    body: "Emissions, caps, and unlocks stay under the creator desk.",
-  },
-];
-
 export type CustomLaunchDraft = {
-  version: 1;
+  version: 2;
   chain: PrintableChain;
-  mode: {
-    kind: LaunchModeKind | null;
-    notes: string;
-  };
+  mode: CustomLaunchModeState;
   token: {
     name: string;
     symbol: string;
@@ -146,9 +134,9 @@ export type CustomLaunchDraft = {
 export function createCustomLaunchDraft(chain: PrintableChain): CustomLaunchDraft {
   const meta = CUSTOM_CHAIN_META[chain];
   return {
-    version: 1,
+    version: 2,
     chain,
-    mode: { kind: null, notes: "" },
+    mode: createLaunchModeState(),
     token: {
       name: "",
       symbol: "",
@@ -206,7 +194,7 @@ export type StepStatus = "complete" | "incomplete" | "ready" | "blocked";
 export function stepStatus(draft: CustomLaunchDraft, id: CustomLaunchStepId): StepStatus {
   switch (id) {
     case "mode":
-      return draft.mode.kind ? "complete" : "incomplete";
+      return draft.mode.primary ? "complete" : "incomplete";
     case "token":
       return draft.token.name.trim() && draft.token.symbol.trim() && draft.token.supply.trim()
         ? "complete"
@@ -268,10 +256,6 @@ export function stepIndex(id: CustomLaunchStepId) {
 export function adjacentStep(id: CustomLaunchStepId, delta: -1 | 1): CustomLaunchStepId | null {
   const next = stepIndex(id) + delta;
   return CUSTOM_LAUNCH_STEPS[next]?.id ?? null;
-}
-
-export function launchModeTitle(kind: LaunchModeKind | null) {
-  return LAUNCH_MODE_OPTIONS.find((option) => option.id === kind)?.title ?? "Not selected";
 }
 
 export function formatBps(bps: number) {

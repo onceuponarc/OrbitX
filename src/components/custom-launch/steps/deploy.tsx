@@ -56,13 +56,13 @@ export function DeployStep() {
           <div>
             <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">Instrument</dt>
             <dd className="mt-1">
-              {draft.token.name} · ${draft.token.symbol} · {launchModeTitle(draft.mode.kind)}
+              {draft.token.name} · ${draft.token.symbol} · {launchModeTitle(draft.mode)}
             </dd>
           </div>
           <div>
             <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">Local draft</dt>
             <dd className="mt-1 font-mono text-xs text-white/70">
-              orbitx.custom-launch.v1.{draft.chain}
+              orbitx.custom-launch.v2.{draft.chain}
             </dd>
           </div>
         </dl>

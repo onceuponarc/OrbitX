@@ -1,7 +1,14 @@
 import type { PrintableChain } from "@onceupon/config/solana";
+import {
+  createLaunchModeState,
+  isLaunchStrategyId,
+  type CustomLaunchModeState,
+  type LaunchStrategyId,
+  type StrategyIntent,
+} from "@/lib/custom-launch/modes";
 import { createCustomLaunchDraft, type CustomLaunchDraft } from "@/lib/custom-launch/schema";
 
-export const CUSTOM_LAUNCH_STORAGE_PREFIX = "orbitx.custom-launch.v1.";
+export const CUSTOM_LAUNCH_STORAGE_PREFIX = "orbitx.custom-launch.v2.";
 
 export function customLaunchStorageKey(chain: PrintableChain) {
   return `${CUSTOM_LAUNCH_STORAGE_PREFIX}${chain}`;
@@ -12,20 +19,51 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function parseCustomLaunchDraft(raw: unknown, chain: PrintableChain): CustomLaunchDraft | null {
-  if (!isRecord(raw) || raw.version !== 1 || raw.chain !== chain) return null;
+  if (!isRecord(raw) || (raw.version !== 1 && raw.version !== 2) || raw.chain !== chain) return null;
   const base = createCustomLaunchDraft(chain);
   if (!isRecord(raw.mode) || !isRecord(raw.token) || !isRecord(raw.economics)) return null;
   if (!isRecord(raw.primary) || !isRecord(raw.secondary) || !isRecord(raw.automation)) return null;
 
   return {
     ...base,
-    mode: { ...base.mode, ...pick(raw.mode, base.mode) },
+    version: 2,
+    mode: parseLaunchMode(raw.mode),
     token: { ...base.token, ...pick(raw.token, base.token) },
     economics: { ...base.economics, ...pick(raw.economics, base.economics) },
     primary: { ...base.primary, ...pick(raw.primary, base.primary) },
     secondary: { ...base.secondary, ...pick(raw.secondary, base.secondary) },
     automation: { ...base.automation, ...pick(raw.automation, base.automation) },
     reviewedAt: typeof raw.reviewedAt === "string" || raw.reviewedAt === null ? raw.reviewedAt : null,
+  };
+}
+
+function parseLaunchMode(raw: Record<string, unknown>): CustomLaunchModeState {
+  const base = createLaunchModeState();
+  const primary = isLaunchStrategyId(raw.primary) ? raw.primary : base.primary;
+  const modules = Array.isArray(raw.modules)
+    ? raw.modules.filter((id): id is LaunchStrategyId => isLaunchStrategyId(id) && id !== primary)
+    : [];
+  const inspected = isLaunchStrategyId(raw.inspected) ? raw.inspected : primary;
+  const intents: CustomLaunchModeState["intents"] = {};
+  if (isRecord(raw.intents)) {
+    for (const [key, value] of Object.entries(raw.intents)) {
+      if (!isLaunchStrategyId(key) || !isRecord(value)) continue;
+      intents[key] = {
+        allocationBps: Number(value.allocationBps) || 2000,
+        threshold: typeof value.threshold === "string" ? value.threshold : "1.0",
+        maxAmount: typeof value.maxAmount === "string" ? value.maxAmount : "10",
+        frequency: typeof value.frequency === "string" ? value.frequency : "weekly",
+        wallet: typeof value.wallet === "string" ? value.wallet : "",
+        charityId: typeof value.charityId === "string" ? value.charityId : "water",
+      } satisfies StrategyIntent;
+    }
+  }
+  return {
+    primary,
+    modules,
+    inspected,
+    notes: typeof raw.notes === "string" ? raw.notes : "",
+    intents,
   };
 }
 
