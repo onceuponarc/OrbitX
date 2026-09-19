@@ -23,7 +23,7 @@ import {
   type CompareOp,
   type TriggerKind,
 } from "@/lib/custom-launch/automation";
-import { FEE_DESTINATIONS } from "@/lib/custom-launch/fees";
+import { FEE_DESTINATION_IDS, FEE_DESTINATIONS, type FeeDestinationId } from "@/lib/custom-launch/fees";
 import { formatBps } from "@/lib/custom-launch/schema";
 import { cn } from "@/lib/utils";
 
@@ -349,7 +349,7 @@ function RouteStep({
         {rule.routes.map((row) => {
           const locked = lockedRouteBps(row.destination);
           return (
-            <li key={row.id} className="grid grid-cols-[1fr_88px] items-center gap-3 rounded-2xl border border-white/10 px-3 py-2">
+            <li key={row.id} className="grid grid-cols-[1fr_88px_auto] items-center gap-3 rounded-2xl border border-white/10 px-3 py-2">
               <span className="text-sm">{FEE_DESTINATIONS[row.destination].label}</span>
               <Input
                 type="number"
@@ -366,10 +366,43 @@ function RouteStep({
                   });
                 }}
               />
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={locked !== undefined}
+                onClick={() => onChange({ ...rule, routes: rule.routes.filter((item) => item.id !== row.id) })}
+              >
+                Remove
+              </Button>
             </li>
           );
         })}
       </ul>
+      {FEE_DESTINATION_IDS.some((id) => !rule.routes.some((row) => row.destination === id)) ? (
+        <div className="mt-3">
+          <select
+            className="h-9 rounded-lg border border-white/10 bg-black/40 px-2 text-sm"
+            defaultValue=""
+            onChange={(event) => {
+              const destination = event.target.value as FeeDestinationId;
+              if (!destination) return;
+              onChange({
+                ...rule,
+                routes: [...rule.routes, { id: destination, destination, bps: 0 }],
+              });
+              event.target.value = "";
+            }}
+          >
+            <option value="">Add destination</option>
+            {FEE_DESTINATION_IDS.filter((id) => !rule.routes.some((row) => row.destination === id)).map((id) => (
+              <option key={id} value={id}>
+                {FEE_DESTINATIONS[id].label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
     </div>
   );
 }

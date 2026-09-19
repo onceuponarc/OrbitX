@@ -102,6 +102,8 @@ export type PoolEstimate = {
   liquidityUsd: number;
   ratio: number;
   marketCapUsd: number;
+  /** Mock constant-product impact of a $100 buy. UI only. */
+  impactBps: number;
   valid: boolean;
   error?: string;
 };
@@ -186,6 +188,7 @@ export function estimatePool(
       liquidityUsd: 0,
       ratio: 0,
       marketCapUsd: 0,
+      impactBps: 0,
       valid: false,
       error: "Enter a valid liquidity amount.",
     };
@@ -195,6 +198,11 @@ export function estimatePool(
   const initialPrice = pairedUsd / tokenAmount;
   const liquidityUsd = pairedUsd * 2;
   const marketCapUsd = supply > 0 ? supply * initialPrice : 0;
+  const quoteIn = mark > 0 ? 100 / mark : 0;
+  const newPaired = pairedAmount + quoteIn;
+  const newToken = newPaired > 0 ? (tokenAmount * pairedAmount) / newPaired : tokenAmount;
+  const newPrice = newToken > 0 ? (newPaired * mark) / newToken : initialPrice;
+  const impactBps = initialPrice > 0 ? Math.round(((newPrice - initialPrice) / initialPrice) * 10_000) : 0;
 
   return {
     tokenAmount,
@@ -204,6 +212,7 @@ export function estimatePool(
     liquidityUsd,
     ratio: tokenAmount / pairedAmount,
     marketCapUsd,
+    impactBps,
     valid: true,
     error: quote === "other" && !customTicker.trim() ? "Name the custom quote asset." : undefined,
   };

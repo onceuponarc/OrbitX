@@ -75,6 +75,11 @@ export function PoolDesk({
           hint="Supply × estimated price"
         />
       </div>
+      <p className="mt-3 text-xs text-white/40">
+        Price impact preview (estimate): a $100 buy would move the mock book about{" "}
+        <span className="text-white/70">{estimate.valid ? `${(estimate.impactBps / 100).toFixed(2)}%` : "—"}</span>.
+        Not a live quote.
+      </p>
     </div>
   );
 }
