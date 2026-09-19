@@ -21,6 +21,7 @@ const files = {
   desk: readFileSync(new URL("../src/components/claimfee/claim-fee-desk.tsx", import.meta.url), "utf8"),
   studio: readFileSync(new URL("../src/components/launch/solana-launch-studio.tsx", import.meta.url), "utf8"),
   signDesk: readFileSync(new URL("../src/lib/wallets/sign-desk.ts", import.meta.url), "utf8"),
+  vanityBrowser: readFileSync(new URL("../src/lib/solana/vanity-browser.ts", import.meta.url), "utf8"),
 };
 
 assert(files.route.includes("collectCreatorFeeTransaction"), "claim route must build from on-chain vaults");
@@ -36,5 +37,9 @@ assert(files.studio.includes("finally"), "studio claim must always clear busy");
 assert(files.studio.indexOf("</form>") < files.studio.indexOf("<ClaimFees"), "claim button must sit outside the launch form");
 assert(files.signDesk.includes("confirmMs"), "desk send must accept a confirm timeout");
 assert(files.signDesk.includes('"auto"'), "desk send must accept auto versioned/legacy txs");
+assert(
+  files.vanityBrowser.includes("requestIdleCallback") && files.vanityBrowser.includes("setTimeout"),
+  "browser vanity grind must yield so Claim fees cannot lock the launch tab",
+);
 
 console.log(JSON.stringify({ ok: true, emptyVaults: false, timedClient: true }));
