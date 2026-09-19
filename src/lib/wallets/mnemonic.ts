@@ -1,6 +1,6 @@
 import { Keypair } from "@solana/web3.js";
 import { entropyToMnemonic, generateMnemonic, mnemonicToEntropy, mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
-import { wordlist } from "@scure/bip39/wordlists/english.js";
+import { wordlist } from "@scure/bip39/wordlists/english";
 import { HDKey } from "@scure/bip32";
 import { derivePath } from "ed25519-hd-key";
 import { privateKeyToAccount } from "viem/accounts";

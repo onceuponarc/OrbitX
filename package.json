@@ -40,8 +40,8 @@
     "@metaplex-foundation/umi-web3js-adapters": "1.5.1",
     "@pump-fun/pump-sdk": "2.0.0",
     "@pump-fun/pump-swap-sdk": "^1.20.0",
-    "@scure/bip32": "^2.4.0",
-    "@scure/bip39": "^2.4.0",
+    "@scure/bip32": "^1.7.0",
+    "@scure/bip39": "^1.6.0",
     "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.99.0",
     "@supabase/ssr": "^0.12.7",
@@ -75,5 +75,10 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "packageManager": "pnpm@10.33.3"
+  "packageManager": "pnpm@10.33.3",
+  "pnpm": {
+    "overrides": {
+      "@metaplex-foundation/mpl-core>@noble/hashes": "1.8.0"
+    }
+  }
 }
