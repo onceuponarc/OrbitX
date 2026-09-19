@@ -21,7 +21,7 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-5 lg:space-y-8">
-      <LiveRefresh intervalMs={2000} />
+      <LiveRefresh />
       <OrbitHero
         liveCount={liveCount}
         bondedCount={bondedCount}

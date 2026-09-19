@@ -31,7 +31,7 @@ export default async function DropPage() {
 
   return (
     <div className="space-y-8 lg:mx-auto lg:max-w-3xl lg:text-center">
-      <LiveRefresh intervalMs={2000} />
+      <LiveRefresh />
 
       <section>
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-gold/80">Launch day</p>

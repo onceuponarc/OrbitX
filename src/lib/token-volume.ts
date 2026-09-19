@@ -223,7 +223,7 @@ function pairsFromBody(body: unknown): DexPairVolume[] {
   return [];
 }
 
-async function fetchJson(url: string, ms = 8000): Promise<unknown | null> {
+async function fetchJson(url: string, ms = 5000): Promise<unknown | null> {
   try {
     const res = await fetch(url, {
       signal: timeoutSignal(ms),
@@ -247,7 +247,7 @@ async function fetchDexBatch(mints: string[]): Promise<Map<string, DexPairVolume
   }
   const missing = mints.filter((mint) => !grouped.has(mint));
   if (!missing.length) return grouped;
-  await mapPool(missing, 6, async (mint) => {
+  await mapPool(missing.slice(0, 8), 4, async (mint) => {
     const pairs = pairsFromBody(await fetchJson(`${DEX_SCREENER}/latest/dex/tokens/${mint}`));
     if (pairs.length) grouped.set(mint, pairs);
   });
@@ -276,7 +276,7 @@ async function fetchPoolOhlcv(network: string, pool: string): Promise<number[][]
   if (cached && Date.now() - cached.ts < OHLCV_TTL_MS) return cached.value;
   const body = await fetchJson(
     `${GECKO}/networks/${network}/pools/${pool}/ohlcv/day?aggregate=1&limit=1000`,
-    10_000,
+    5_000,
   );
   const candles = ohlcvFromBody(body);
   ohlcvCache.set(key, { value: candles, ts: Date.now() });
@@ -319,18 +319,24 @@ export async function loadTokenVolumes(
     const chunk = unique.slice(i, i + DEX_BATCH);
     const grouped = await fetchDexBatch(chunk.map((row) => row.mint));
     for (const row of chunk) {
-      let pairs = grouped.get(row.mint) ?? [];
-      if (!pairs.length) pairs = await fetchDexForToken(row.chain, row.mint);
-      const market = aggregateDexPairs(row.mint, row.chain, pairs);
-      out.set(row.key, market);
+      const pairs = grouped.get(row.mint) ?? [];
+      out.set(row.key, aggregateDexPairs(row.mint, row.chain, pairs));
     }
+    const stillEmpty = chunk.filter((row) => !(grouped.get(row.mint) ?? []).length).slice(0, 6);
+    await mapPool(stillEmpty, 3, async (row) => {
+      const pairs = await fetchDexForToken(row.chain, row.mint);
+      if (pairs.length) out.set(row.key, aggregateDexPairs(row.mint, row.chain, pairs));
+    });
   }
 
-  const needCandles = unique.filter((row) => {
-    const market = out.get(row.key);
-    return Boolean(market?.pairAddress) && (market!.dayUsd > 0 || (market!.mcapUsd ?? 0) > 0);
-  });
-  await mapPool(needCandles, 4, async (row) => {
+  const needCandles = unique
+    .filter((row) => {
+      const market = out.get(row.key);
+      return Boolean(market?.pairAddress) && ((market?.dayUsd ?? 0) > 0 || (market?.mcapUsd ?? 0) > 0);
+    })
+    .sort((a, b) => (out.get(b.key)?.dayUsd ?? 0) - (out.get(a.key)?.dayUsd ?? 0))
+    .slice(0, 8);
+  await mapPool(needCandles, 3, async (row) => {
     const market = out.get(row.key);
     if (!market?.pairAddress) return;
     const candles = await fetchPoolOhlcv(market.network, market.pairAddress);

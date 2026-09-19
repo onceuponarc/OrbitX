@@ -38,4 +38,10 @@ assert(css.includes("--color-gold: #d6ff3d"), "ignite lime is the brand accent")
 assert(css.includes(".pad-app"), "app frame class exists");
 assert(css.includes("safe-area-inset-bottom"), "mobile main clears the dock");
 
+const refresh = readFileSync(new URL("../src/components/pad/live-refresh.tsx", import.meta.url), "utf8");
+assert(!home.includes("intervalMs={2000}"), "home must not full-refresh every 2s");
+assert(refresh.includes("pointerdown"), "live refresh yields to clicks");
+assert(refresh.includes("inflight"), "live refresh must not stack RSC payloads");
+assert(refresh.includes("12_000") || refresh.includes("12000"), "default poll is 12s, not 2s");
+
 console.log(JSON.stringify({ ok: true, chrome: "mobile-app + desktop-web" }));

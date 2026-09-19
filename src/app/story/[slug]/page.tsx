@@ -214,7 +214,7 @@ export default async function StoryPage({
 
   return (
     <div className="space-y-8">
-      <LiveRefresh intervalMs={2000} />
+      <LiveRefresh />
       {story.status === "graduated" ? (
         <div className="rounded-3xl border border-white bg-white px-5 py-6 text-center text-black">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-black/45">Graduation ceremony</p>
