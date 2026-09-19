@@ -87,6 +87,19 @@ if (live) {
   assert(live.dayUsd > 0, `live $ORBITX 24h must not be $0, got ${live.dayUsd}`);
   assert(live.weekUsd >= live.dayUsd, `live 7d ${live.weekUsd} should cover 24h ${live.dayUsd}`);
   assert(live.totalUsd >= live.weekUsd, `live total ${live.totalUsd} should cover 7d ${live.weekUsd}`);
+  const row = overlayLaunchVolume(
+    {
+      volumeUi: 0,
+      volumeDayUsd: 0,
+      volumeWeekUsd: 0,
+      volumeTotalUsd: 0,
+      priceUi: 0,
+      changePct: 0,
+      mcapUi: 0,
+    },
+    live,
+  );
+  assert(row.priceUi > 0, `official board row needs a live price, got ${row.priceUi}`);
   console.log(
     JSON.stringify({
       ok: true,

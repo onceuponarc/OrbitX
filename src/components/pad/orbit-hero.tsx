@@ -65,10 +65,10 @@ export function OrbitHero({
                 Launch a token
               </Link>
               <Link
-                href="/cards"
+                href="/trade"
                 className="rounded-full border border-white/12 px-5 py-2.5 text-sm font-medium text-white/80 hover:text-white"
               >
-                Press cards
+                Trade $ORBITX
               </Link>
             </div>
           </div>

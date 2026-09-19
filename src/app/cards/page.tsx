@@ -19,20 +19,23 @@ export default async function CardsPage() {
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-gold/80">Press</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight lg:text-4xl">Tradable cards</h1>
           <p className="mt-2 max-w-2xl text-white/55">
-            Upload art or paste a tweet. Pick a start price. If the paired Chapter MC 4xs, the jacket 4xs. Listed
-            jackets are for sale. Held jackets sit on a profile until relisted.
+            Press cards are offline on the public pad while we ship live tokens. $ORBITX is on the board.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
           <Button variant="outline" asChild className="h-11 rounded-2xl sm:h-8 sm:rounded-lg">
-            <Link href="/launch/arc">Launch types</Link>
+            <Link href="/launch">Launch</Link>
           </Button>
           <Button asChild className="h-11 rounded-2xl sm:h-8 sm:rounded-lg">
-            <Link href="/cards/new">Print a card</Link>
+            <Link href="/trade">Trade $ORBITX</Link>
           </Button>
         </div>
       </section>
-      <CardsBoard cards={cards} />
+      {cards.length ? <CardsBoard cards={cards} /> : (
+        <p className="pad-panel rounded-2xl px-5 py-10 text-center text-sm text-white/50">
+          No public cards listed.
+        </p>
+      )}
     </div>
   );
 }

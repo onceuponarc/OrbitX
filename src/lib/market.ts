@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { listLocalArcStories, localTape } from "@/lib/arc/store";
-import { enrichLaunch, feedFromArc, isListedLaunch, type FeedLaunch, type RawTrade, type TapeItem } from "@/lib/feed";
+import { enrichLaunch, feedFromArc, isListedLaunch, officialFeedLaunch, pinOfficialFirst, isOfficialLaunch, type FeedLaunch, type RawTrade, type TapeItem } from "@/lib/feed";
 import { getPumpBondingProgress } from "@/lib/solana/pump-progress";
 import { OFFICIAL_TOKEN } from "@/lib/official-token";
 import {
@@ -178,8 +178,8 @@ async function withMarketVolume(launches: FeedLaunch[]): Promise<{ launches: Fee
     return overlayLaunchVolume(launch, volumes.get(volumeKey(launch.chain ?? "arc", launch.tokenAddress)));
   });
   const official = volumes.get(volumeKey("solana", OFFICIAL_TOKEN.mint));
-  const hasOfficial = next.some((item) => item.tokenAddress === OFFICIAL_TOKEN.mint);
-  // Official $ORBITX is the live flagship mint; include it in pad totals even
-  // when it is not a row on the public launch board.
-  return { launches: next, volume: sumPadVolume(next, hasOfficial ? null : official) };
+  const withoutOfficialDup = next.filter((item) => !isOfficialLaunch(item));
+  const officialRow = overlayLaunchVolume(officialFeedLaunch(), official);
+  const listed = pinOfficialFirst([officialRow, ...withoutOfficialDup]);
+  return { launches: listed, volume: sumPadVolume(listed) };
 }

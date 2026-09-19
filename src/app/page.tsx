@@ -6,8 +6,6 @@ import { loadPadMarket } from "@/lib/market";
 import { getSessionUser } from "@/lib/auth";
 import { tokenOfTheDay } from "@/lib/feed";
 import Link from "next/link";
-import { viewAllCards } from "@/lib/cards/resolve";
-import { CardRail } from "@/components/cards/card-rail";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +15,6 @@ export default async function HomePage() {
   const liveCount = launches.filter((item) => item.status === "live").length;
   const bondedCount = launches.filter((item) => item.status === "graduated").length;
   const totd = tokenOfTheDay(launches);
-  const cards = await viewAllCards().catch(() => []);
 
   return (
     <div className="space-y-5 lg:space-y-8">
@@ -31,7 +28,7 @@ export default async function HomePage() {
         handle={profile?.handle ?? null}
       />
       <div className="grid grid-cols-3 gap-2 lg:hidden">
-        <HomeLink href="/cards" label="Cards" />
+        <HomeLink href="/trade" label="Trade" />
         <HomeLink href="/drop" label="Drop" />
         <HomeLink href="/params" label="$ORBITX" />
       </div>
@@ -39,12 +36,11 @@ export default async function HomePage() {
         <FeedBoard launches={launches} king={totd} />
         <aside className="mt-5 hidden space-y-4 lg:sticky lg:top-24 lg:mt-0 lg:block">
           {totd ? <KingBanner launch={totd} /> : null}
-          {cards.length ? <CardRail cards={cards.slice(0, 8)} /> : null}
           <Link
             href="/whitepaper"
             className="pad-panel rounded-2xl px-5 py-4 text-sm text-white/55 transition-colors hover:text-white"
           >
-            How launches, Press Cards, and $ORBITX work →
+            How launches and $ORBITX work →
           </Link>
         </aside>
       </div>

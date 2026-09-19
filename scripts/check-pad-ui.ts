@@ -44,4 +44,16 @@ assert(refresh.includes("pointerdown"), "live refresh yields to clicks");
 assert(refresh.includes("inflight"), "live refresh must not stack RSC payloads");
 assert(refresh.includes("12_000") || refresh.includes("12000"), "default poll is 12s, not 2s");
 
+assert(!home.includes("CardRail"), "home must not show press-card NFTs");
+assert(!home.includes("/cards"), "home shortcuts must not link to cards");
+assert(home.includes("$ORBITX"), "home still points at official $ORBITX");
+
+const feed = readFileSync(new URL("../src/lib/feed.ts", import.meta.url), "utf8");
+assert(feed.includes("cursor-agent-p29a"), "hides the CAGT test launch");
+assert(feed.includes("OFFICIAL_LAUNCH_SLUG"), "official $ORBITX is a board row");
+assert(feed.includes("officialFeedLaunch"), "builds the live $ORBITX feed row");
+
+const cards = readFileSync(new URL("../src/lib/cards/resolve.ts", import.meta.url), "utf8");
+assert(cards.includes("PUBLIC_PRESS_CARDS = false"), "public NFTs stay hidden");
+
 console.log(JSON.stringify({ ok: true, chrome: "mobile-app + desktop-web" }));

@@ -19,7 +19,6 @@ export const DESKTOP_NAV = [
   {
     group: "Create",
     items: [
-      { href: "/cards", label: "Cards", match: "/cards" },
       { href: "/drop", label: "Drop", match: "/drop" },
     ],
   },

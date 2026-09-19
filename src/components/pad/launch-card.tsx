@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkline } from "@/components/pad/sparkline";
 import { CurveMeter } from "@/components/pad/curve-meter";
 import { WatchButton } from "@/components/pad/watch-button";
-import { tickerHue, launchChainLabel, launchHref, type FeedLaunch } from "@/lib/feed";
+import { tickerHue, launchChainLabel, launchHref, launchTradeHref, isOfficialLaunch, type FeedLaunch } from "@/lib/feed";
 import { formatPct, formatUsd, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -30,8 +30,10 @@ export function TokenRow({ launch }: { launch: FeedLaunch }) {
   const up = launch.changePct >= 0;
   const hot = (launch.volumeDayUsd || launch.volumeUi) >= 100 || launch.changePct >= 20;
   const dest = launchHref(launch);
+  const trade = launchTradeHref(launch);
   const chain = launchChainLabel(launch.chain);
-  const offPlatform = launch.chain !== "arc";
+  const official = isOfficialLaunch(launch);
+  const offPlatform = launch.chain !== "arc" && !official;
   return (
     <div className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-white/[0.04] lg:gap-3 lg:px-3 lg:py-2">
       <Link href={dest.href} className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -42,7 +44,7 @@ export function TokenRow({ launch }: { launch: FeedLaunch }) {
             {launch.chain && launch.chain !== "arc" ? (
               <span className="text-[10px] uppercase text-white/40">{chain}</span>
             ) : null}
-            {hot ? <Badge>Hot</Badge> : null}
+            {official ? <Badge>Official</Badge> : null}
             {launch.lastSide ? (
               <span className={launch.lastSide === "buy" ? "text-[10px] uppercase text-buy" : "text-[10px] uppercase text-sell"}>
                 {launch.lastSide}
@@ -70,7 +72,7 @@ export function TokenRow({ launch }: { launch: FeedLaunch }) {
           <WatchButton slug={launch.slug} />
         </span>
         <Link
-          href={offPlatform ? dest.href : `/story/${launch.slug}?buy=1`}
+          href={offPlatform ? dest.href : trade}
           className="rounded-full bg-gold px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink"
         >
           {offPlatform ? "View" : "Buy"}
