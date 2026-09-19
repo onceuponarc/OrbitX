@@ -219,6 +219,23 @@
   .pad-fade {
     animation: pad-in 280ms ease both;
   }
+
+  .ox-console {
+    border: 1px solid rgb(214 255 61 / 14%);
+    background:
+      linear-gradient(180deg, rgb(24 26 32 / 86%), rgb(11 13 17 / 92%)),
+      radial-gradient(120% 80% at 0% 0%, rgb(214 255 61 / 8%), transparent 55%);
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 4%) inset,
+      0 22px 50px rgb(0 0 0 / 38%);
+  }
+
+  .ox-console-metal {
+    background:
+      linear-gradient(180deg, rgb(38 40 46 / 70%), rgb(14 16 20 / 88%)),
+      linear-gradient(90deg, rgb(214 255 61 / 6%), transparent 40%);
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 5%) inset;
+  }
 }
 
 @keyframes pad-in {

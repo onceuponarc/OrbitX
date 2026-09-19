@@ -1,25 +1,31 @@
 import Link from "next/link";
-import { LaunchChainSwitch } from "@/components/launch/chain-switch";
 import { RiskFeeNotice } from "@/components/launch/beta-notice";
+import { cn } from "@/lib/utils";
 
 const LANES = [
   {
-    href: "/launch/arc",
-    label: "Arc",
-    status: "Argus · live",
-    body: "Fixed-supply Argus v4. The desk seeds the Uniswap v4 USDC pool in the same transaction.",
-    beta: true,
-  },
-  {
     href: "/launch/solana",
+    customHref: "/launch/solana/custom",
     label: "Solana",
+    short: "SOLANA",
     status: "pump.fun · live",
     body: "Curve is live at create. Buy and sell on pump / Jupiter. Volume feeds the LP at graduation.",
     beta: false,
   },
   {
+    href: "/launch/arc",
+    customHref: "/launch/arc/custom",
+    label: "Arc",
+    short: "ARC",
+    status: "Argus · live",
+    body: "Fixed-supply Argus v4. The desk seeds the Uniswap v4 USDC pool in the same transaction.",
+    beta: true,
+  },
+  {
     href: "/launch/robinhood",
-    label: "Robinhood Chain",
+    customHref: "/launch/robinhood/custom",
+    label: "RH",
+    short: "RH",
     status: "Pons v2 · live",
     body: "Fully live, out of beta. Curve live at create. Fund the in-app RH wallet with ETH.",
     beta: false,
@@ -33,17 +39,16 @@ export default function LaunchHubPage() {
     <div className="space-y-5">
       <section>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-gold/80">Launch desk</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight lg:text-4xl">Pick a venue</h1>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight lg:text-4xl">Choose a chain</h1>
         <p className="mt-2 max-w-2xl text-sm text-white/55 lg:text-base">
-          Only paths that print a tradable coin. Same in-app wallet on each chain.
+          Every venue has two desks. Normal Launch is the live print you already use. Custom Launch
+          is the advanced control surface for economics, markets, and automation — UI only in this
+          phase.
         </p>
-        <div className="mt-4">
-          <LaunchChainSwitch current="/launch" />
-        </div>
       </section>
       <div className="grid gap-3 lg:grid-cols-3 lg:gap-4">
         {LANES.map((lane) => (
-          <Link key={lane.href} href={lane.href} className="pad-panel rounded-[1.4rem] p-5 hover:border-gold/35">
+          <article key={lane.href} className="ox-console rounded-[1.4rem] p-5">
             <div className="flex items-center justify-between gap-2">
               <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-arc">{lane.status}</p>
               {lane.beta ? (
@@ -56,9 +61,27 @@ export default function LaunchHubPage() {
                 </span>
               )}
             </div>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight">{lane.label}</h2>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight">{lane.short}</h2>
+            <p className="mt-1 text-sm text-white/45">{lane.label}</p>
             <p className="mt-2 text-sm text-white/55">{lane.body}</p>
-          </Link>
+            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Link
+                href={lane.href}
+                className="rounded-2xl border border-white/15 bg-white px-3 py-3 text-center text-sm font-semibold text-ink transition-colors hover:bg-gold"
+              >
+                Normal Launch
+              </Link>
+              <Link
+                href={lane.customHref}
+                className={cn(
+                  "rounded-2xl border border-gold/35 bg-gold/10 px-3 py-3 text-center text-sm font-semibold text-gold",
+                  "transition-colors hover:border-gold hover:bg-gold/20",
+                )}
+              >
+                Custom Launch
+              </Link>
+            </div>
+          </article>
         ))}
       </div>
       <RiskFeeNotice />
