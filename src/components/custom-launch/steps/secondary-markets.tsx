@@ -218,6 +218,7 @@ export function SecondaryMarketsStep() {
                         pool={row.pool}
                         estimate={estimate}
                         tokenLabel={draft.token.symbol ? `$${draft.token.symbol}` : "Token units"}
+                        totalSupply={draft.token.supply}
                         onChange={(pool) =>
                           update((current) => ({
                             ...current,

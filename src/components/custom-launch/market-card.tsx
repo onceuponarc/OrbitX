@@ -57,7 +57,15 @@ export function MarketCard({
           {status === "ready" ? "Ready" : status === "incomplete" ? "Incomplete" : "Not configured"}
         </span>
       </div>
-      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <div>
+          <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/35">Status</dt>
+          <dd className="mt-0.5">{status === "ready" ? "Ready" : status === "incomplete" ? "Incomplete" : "Not configured"}</dd>
+        </div>
+        <div>
+          <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/35">Type</dt>
+          <dd className="mt-0.5">{typeLabel}</dd>
+        </div>
         <div>
           <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/35">Liquidity</dt>
           <dd className="mt-0.5 tabular-nums">{formatEstimateUsd(estimate.liquidityUsd)}</dd>

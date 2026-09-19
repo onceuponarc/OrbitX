@@ -172,6 +172,10 @@ assert(primaryStep.includes("QuoteSelect"), "primary step has SOL/USDC cards");
 assert(primaryStep.includes("PoolDesk"), "primary step has pool configuration");
 assert(primaryStep.includes("LiquiditySource"), "primary step has liquidity source");
 assert(primaryStep.includes("AdvancedMarket"), "primary step has advanced settings");
+assert(marketsSrc.includes("Select a primary market to continue."), "primary validation copy is centralized");
+assert(marketsSrc.includes("Enter a valid liquidity amount."), "liquidity validation copy is centralized");
+assert(marketsSrc.includes("Complete this market or remove it."), "secondary incomplete copy is centralized");
+assert(marketsSrc.includes("That market has already been added."), "duplicate pair copy is centralized");
 assert(secondaryStep.includes("Add market"), "secondary step can add markets");
 assert(secondaryStep.includes("MarketRouter"), "secondary step has market routing viz");
 assert(!primaryStep.includes("/api/"), "primary market must not call APIs");
@@ -185,6 +189,7 @@ const {
   createSecondaryMarket,
   estimatePool,
   primaryMarketComplete,
+  primaryMarketError,
   secondaryMarketsComplete,
   tickerConflicts,
 } = await import("../src/lib/custom-launch/markets.ts");
@@ -192,6 +197,19 @@ const {
 const markets = createMarketsConfig();
 assert(markets.primary.quote === "sol", "default primary market is SOL");
 assert(primaryMarketComplete(markets, "1000000000"), "default SOL pool is complete");
+assert(!primaryMarketError(markets, "1000000000"), "default primary has no error");
+assert(
+  primaryMarketError({ ...markets, access: { ...markets.access, primaryEnabled: false } }, "1000000000") ===
+    "Select a primary market to continue.",
+  "disabled primary uses the required-market copy",
+);
+assert(
+  primaryMarketError(
+    { ...markets, primary: { ...markets.primary, pool: { tokenAllocation: "0", pairedAmount: "0" } } },
+    "1000000000",
+  ) === "Enter a valid liquidity amount.",
+  "empty pool uses the liquidity copy",
+);
 const usdcPool = estimatePool({ tokenAllocation: "200000000", pairedAmount: "5000" }, "usdc", "1000000000");
 assert(usdcPool.valid && usdcPool.pairedUsd === 5000, "USDC pool estimate uses $1 mark");
 assert(usdcPool.liquidityUsd === 10_000, "UI liquidity is both sides");

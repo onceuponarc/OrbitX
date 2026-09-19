@@ -251,8 +251,25 @@ export function primaryEstimate(markets: MarketsConfig, totalSupply: string) {
 }
 
 export function primaryMarketComplete(markets: MarketsConfig, totalSupply = "1000000000") {
+  return !primaryMarketError(markets, totalSupply);
+}
+
+export function primaryMarketError(markets: MarketsConfig, totalSupply = "1000000000") {
+  if (!markets.primary.quote || !markets.access.primaryEnabled) {
+    return "Select a primary market to continue.";
+  }
   const estimate = primaryEstimate(markets, totalSupply);
-  return Boolean(markets.primary.quote) && estimate.valid && !estimate.error && markets.access.primaryEnabled;
+  if (!estimate.valid || estimate.error === "Enter a valid liquidity amount.") {
+    return "Enter a valid liquidity amount.";
+  }
+  return estimate.error;
+}
+
+export function liquidityAllocationPct(tokenAllocation: string, totalSupply: string) {
+  const allocated = parseAmount(tokenAllocation);
+  const supply = parseAmount(totalSupply);
+  if (!(allocated > 0) || !(supply > 0)) return 0;
+  return Math.min(100, (allocated / supply) * 100);
 }
 
 export function marketTickers(markets: MarketsConfig) {

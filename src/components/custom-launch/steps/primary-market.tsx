@@ -11,14 +11,14 @@ import {
   createPoolConfig,
   estimatePool,
   LIQUIDITY_SOURCE_META,
-  primaryMarketComplete,
+  primaryMarketError,
 } from "@/lib/custom-launch/markets";
 
 export function PrimaryMarketStep() {
   const { draft, update } = useCustomLaunch();
   const { primary, access } = draft.markets;
   const estimate = estimatePool(primary.pool, primary.quote, draft.token.supply);
-  const complete = primaryMarketComplete(draft.markets, draft.token.supply);
+  const error = primaryMarketError(draft.markets, draft.token.supply);
 
   return (
     <section className="space-y-4">
@@ -29,13 +29,7 @@ export function PrimaryMarketStep() {
           Choose the required primary market and size the intended pool. These are local estimates —
           no liquidity is posted and no pair is created.
         </p>
-        {!complete ? (
-          <p className="mt-3 text-sm text-heat">
-            {!access.primaryEnabled
-              ? "Enable the primary market to continue."
-              : "Select a primary market and enter a valid liquidity amount."}
-          </p>
-        ) : null}
+        {error ? <p className="mt-3 text-sm text-heat">{error}</p> : null}
       </div>
 
       <div className="ox-console rounded-[1.35rem] p-5">
@@ -68,6 +62,7 @@ export function PrimaryMarketStep() {
           pool={primary.pool}
           estimate={estimate}
           tokenLabel={draft.token.symbol ? `$${draft.token.symbol}` : "Token units"}
+          totalSupply={draft.token.supply}
           onChange={(pool) =>
             update((current) => ({
               ...current,

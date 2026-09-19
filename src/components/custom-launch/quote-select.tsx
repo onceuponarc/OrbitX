@@ -56,14 +56,16 @@ export function QuoteSelect({
           );
         })}
       </div>
-      <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">Live pair preview</p>
-        <p className="mt-1 text-lg font-semibold">
-          {tokenTicker(symbol)}
-          <span className="mx-2 text-white/25">/</span>
-          {QUOTE_ASSETS[value].ticker}
-        </p>
-        <p className="mt-1 text-xs text-white/40">Mock pair. No book is opened from this screen.</p>
+      <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 sm:grid-cols-2">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">Token</p>
+          <p className="mt-1 text-lg font-semibold">{tokenTicker(symbol)}</p>
+        </div>
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">Pair</p>
+          <p className="mt-1 text-lg font-semibold">{pairLabel(symbol, value)}</p>
+        </div>
+        <p className="text-xs text-white/40 sm:col-span-2">Mock pair. No book is opened from this screen.</p>
       </div>
     </div>
   );

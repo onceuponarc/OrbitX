@@ -7,6 +7,7 @@ import {
   formatEstimatePrice,
   formatEstimateUsd,
   formatRatio,
+  liquidityAllocationPct,
   quoteTicker,
   type PoolConfig,
   type PoolEstimate,
@@ -19,6 +20,7 @@ export function PoolDesk({
   pool,
   estimate,
   tokenLabel,
+  totalSupply,
   onChange,
 }: {
   quote: QuoteAssetId;
@@ -26,9 +28,11 @@ export function PoolDesk({
   pool: PoolConfig;
   estimate: PoolEstimate;
   tokenLabel: string;
+  totalSupply?: string;
   onChange: (next: Partial<PoolConfig>) => void;
 }) {
   const quoteLabel = quoteTicker(quote, customTicker);
+  const allocatedPct = liquidityAllocationPct(pool.tokenAllocation, totalSupply ?? "");
 
   return (
     <div>
@@ -75,6 +79,20 @@ export function PoolDesk({
           hint="Supply × estimated price"
         />
       </div>
+      {totalSupply ? (
+        <div className="mt-4">
+          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">
+            <span>Liquidity allocation</span>
+            <span>{allocatedPct.toFixed(allocatedPct % 1 ? 1 : 0)}% of supply</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gold transition-all duration-500"
+              style={{ width: `${Math.max(allocatedPct > 0 ? 4 : 0, Math.min(100, allocatedPct))}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
       <p className="mt-3 text-xs text-white/40">
         Price impact preview (estimate): a $100 buy would move the mock book about{" "}
         <span className="text-white/70">{estimate.valid ? `${(estimate.impactBps / 100).toFixed(2)}%` : "—"}</span>.
