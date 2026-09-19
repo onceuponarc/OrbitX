@@ -16,7 +16,11 @@ export function StepFooter() {
         Back
       </Button>
       <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/40">
-        {status === "complete" || status === "ready" ? "This step is set" : "This step still needs input"}
+        {step === "deploy"
+          ? "Preview only — nothing is broadcast"
+          : status === "complete" || status === "ready"
+            ? "This step is set"
+            : "This step still needs input"}
       </p>
       <Button type="button" disabled={!next} onClick={() => goAdjacent(1)}>
         Continue

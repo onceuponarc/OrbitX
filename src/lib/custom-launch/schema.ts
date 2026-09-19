@@ -181,7 +181,7 @@ export function createCustomLaunchDraft(chain: PrintableChain): CustomLaunchDraf
     },
     secondary: {
       listOnDex: true,
-      quotePair: `${meta.short}/${meta.quote}`,
+      quotePair: `TOKEN/${meta.quote}`,
       seedLiquidity: "",
       lpLockDays: 90,
       feeTierBps: 30,

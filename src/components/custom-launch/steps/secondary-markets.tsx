@@ -38,7 +38,7 @@ export function SecondaryMarketsStep() {
             <Input
               value={secondary.quotePair}
               onChange={(event) => patch("secondary", { quotePair: event.target.value })}
-              placeholder={`${meta.short}/${meta.quote}`}
+              placeholder={`${draft.token.symbol.trim() || "TOKEN"}/${meta.quote}`}
             />
           </Field>
           <Field label={`Seed liquidity (${meta.quote})`}>
