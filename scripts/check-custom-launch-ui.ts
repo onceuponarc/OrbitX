@@ -53,6 +53,9 @@ assert(wizard.includes("LaunchModeStep"), "wizard renders launch mode");
 assert(wizard.includes("DeployStep"), "wizard renders deploy");
 assert(deploy.includes("UI foundation"), "deploy states this is UI only");
 assert(deploy.includes("still not deployed"), "deploy must not claim a live print");
+assert(deploy.includes("DeploymentPreview"), "deploy mounts the preview card");
+assert(deploy.includes("DeploymentProgress"), "deploy mounts mock progress");
+assert(deploy.includes("DeploymentSuccess"), "deploy mounts the mock success desk");
 assert(!deploy.includes("transaction confirmed"), "deploy must not fake a confirmation");
 assert(!deploy.includes("successfully deployed"), "deploy must not claim success");
 
@@ -308,4 +311,78 @@ const orRule = createRule(
 );
 assert(simulateRule({ ...orRule, status: "active" }, auto.simulation).ready, "OR market-cap/volume hits via volume");
 
-console.log(JSON.stringify({ ok: true, customLaunch: "markets-automation" }));
+const reviewStep = readFileSync(new URL("../src/components/custom-launch/steps/review.tsx", import.meta.url), "utf8");
+const launchReview = readFileSync(new URL("../src/components/custom-launch/launch-review.tsx", import.meta.url), "utf8");
+const deployPreview = readFileSync(new URL("../src/components/custom-launch/deployment-preview.tsx", import.meta.url), "utf8");
+const confirm = readFileSync(new URL("../src/components/custom-launch/deployment-confirmation.tsx", import.meta.url), "utf8");
+const progress = readFileSync(new URL("../src/components/custom-launch/deployment-progress.tsx", import.meta.url), "utf8");
+const success = readFileSync(new URL("../src/components/custom-launch/deployment-success.tsx", import.meta.url), "utf8");
+const validation = readFileSync(new URL("../src/components/custom-launch/validation-center.tsx", import.meta.url), "utf8");
+const flow = readFileSync(new URL("../src/components/custom-launch/economics-flow.tsx", import.meta.url), "utf8");
+const timeline = readFileSync(new URL("../src/components/custom-launch/automation-timeline.tsx", import.meta.url), "utf8");
+const mockSrc = readFileSync(new URL("../src/lib/custom-launch/mock-deploy.ts", import.meta.url), "utf8");
+const readySrc = readFileSync(new URL("../src/lib/custom-launch/readiness.ts", import.meta.url), "utf8");
+const reviewLib = readFileSync(new URL("../src/lib/custom-launch/review.ts", import.meta.url), "utf8");
+const summary = readFileSync(new URL("../src/components/custom-launch/launch-summary.tsx", import.meta.url), "utf8");
+
+assert(reviewStep.includes("LaunchReview"), "review step mounts LaunchReview");
+assert(reviewStep.includes("DeploymentPreview"), "review step mounts DeploymentPreview");
+assert(launchReview.includes("EconomicsFlow"), "review shows economics visualization");
+assert(launchReview.includes("AutomationTimeline"), "review shows automation timeline");
+assert(launchReview.includes("ValidationCenter"), "review shows validation center");
+assert(validation.includes("LaunchReadiness"), "LaunchReadiness exists");
+assert(validation.includes("Ready to deploy"), "readiness can pass");
+assert(validation.includes("Configuration required"), "readiness can fail");
+assert(flow.includes("Total fee"), "economics flow shows total fee");
+assert(flow.includes("Unallocated"), "economics flow shows unallocated");
+assert(timeline.includes("Requires configuration"), "timeline uses mock statuses");
+assert(deployPreview.includes("Deploy Custom Launch"), "preview has the deploy button");
+assert(confirm.includes("Deploy Custom Launch?"), "confirmation title is set");
+assert(
+  confirm.includes("I understand this configuration will determine the token"),
+  "confirmation requires the economics checkbox",
+);
+assert(progress.includes("Initializing Custom Launch"), "progress uses the mock header");
+assert(progress.includes("MOCK_DEPLOY_STAGES"), "progress reads mock stages");
+assert(success.includes("CUSTOM LAUNCH READY"), "success header is set");
+assert(success.includes("MOCK_DEPLOY_DISCLAIMER"), "success stays labeled mock");
+assert(success.includes("Back to Launchpad"), "success can return to the hub");
+assert(summary.includes("Primary market"), "side summary shows primary market");
+assert(summary.includes("STATUS") || summary.includes("Status"), "side summary shows status");
+assert(mockSrc.includes("MOCK_TOKEN_"), "mock token addresses are labeled");
+assert(mockSrc.includes("MOCK_POOL_"), "mock pool addresses are labeled");
+assert(mockSrc.includes("MOCK-LAUNCH-"), "mock launch ids are labeled");
+assert(mockSrc.includes("MOCK_TX_NOT_BROADCAST"), "mock tx is not a broadcast");
+assert(readySrc.includes("evaluateReadiness"), "readiness evaluator exists");
+assert(reviewLib.includes("reviewSnapshot"), "review snapshot selector exists");
+assert(wizard.includes("DeploymentConfirmation"), "wizard mounts the confirmation modal");
+assert(!confirm.includes("sendTransaction"), "confirmation must not send txs");
+assert(!progress.includes("/api/"), "progress must not call APIs");
+assert(!success.includes("successfully deployed"), "success must not claim a live print");
+assert(!success.includes("transaction confirmed"), "success must not fake confirmation");
+
+const { evaluateReadiness, launchIsReady } = await import("../src/lib/custom-launch/readiness.ts");
+const { createMockDeployResult } = await import("../src/lib/custom-launch/mock-deploy.ts");
+
+const blankDraft = {
+  version: 4 as const,
+  chain: "solana" as const,
+  mode,
+  token: createTokenConfig(9),
+  supply: createSupplyPlan(),
+  fees: feeConfig,
+  economics: { quote: "native" as const, maxWalletBps: 200, maxTxBps: 100, transferRestricted: false },
+  markets: createMarketsConfig(),
+  automation: createAutomationConfig(),
+  reviewedAt: null,
+};
+assert(!launchIsReady(blankDraft), "empty draft is not ready");
+assert(evaluateReadiness(blankDraft).some((row) => !row.pass), "empty draft has failing checks");
+const mock = createMockDeployResult("DESK", "solana", "sol");
+assert(mock.tokenAddress === "MOCK_TOKEN_DESK", "mock token uses the ticker");
+assert(mock.poolAddress === "MOCK_POOL_DESK_SOL", "mock pool uses the pair");
+assert(mock.launchId.startsWith("MOCK-LAUNCH-"), "mock launch id is labeled");
+assert(mock.transaction === "MOCK_TX_NOT_BROADCAST", "mock tx is not broadcast");
+assert(reviewLib.includes('kind: "Custom Launch"'), "snapshot marks Custom Launch");
+
+console.log(JSON.stringify({ ok: true, customLaunch: "review-deploy" }));

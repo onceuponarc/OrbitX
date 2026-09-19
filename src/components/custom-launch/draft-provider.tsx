@@ -4,12 +4,19 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
 import type { PrintableChain } from "@onceupon/config/solana";
+import {
+  createMockDeployResult,
+  MOCK_DEPLOY_STAGES,
+  type MockDeployResult,
+} from "@/lib/custom-launch/mock-deploy";
+import { launchIsReady } from "@/lib/custom-launch/readiness";
 import {
   adjacentStep,
   configuredCount,
@@ -28,6 +35,8 @@ import {
   setCustomLaunchDraft,
   subscribeCustomLaunchDraft,
 } from "@/lib/custom-launch/draft";
+
+export type MockDeployPhase = "idle" | "confirming" | "running" | "ready";
 
 type PatchSection = {
   [K in keyof CustomLaunchDraft]: CustomLaunchDraft[K] extends Record<string, unknown>
@@ -50,6 +59,12 @@ type CustomLaunchContextValue = {
   total: number;
   ready: boolean;
   missing: ReturnType<typeof incompleteSteps>;
+  deployPhase: MockDeployPhase;
+  deployStage: number;
+  mockResult: MockDeployResult | null;
+  openDeployConfirm: () => void;
+  closeDeployConfirm: () => void;
+  startMockDeploy: () => void;
 };
 
 const CustomLaunchContext = createContext<CustomLaunchContextValue | null>(null);
@@ -67,6 +82,9 @@ export function CustomLaunchDraftProvider({
     () => getCustomLaunchDraftServerSnapshot(chain),
   );
   const [step, setStep] = useState<CustomLaunchStepId>("mode");
+  const [deployPhase, setDeployPhase] = useState<MockDeployPhase>("idle");
+  const [deployStage, setDeployStage] = useState(0);
+  const [mockResult, setMockResult] = useState<MockDeployResult | null>(null);
 
   const patch = useCallback(
     <K extends PatchSection>(key: K, next: Partial<CustomLaunchDraft[K]>) => {
@@ -88,6 +106,9 @@ export function CustomLaunchDraftProvider({
   const reset = useCallback(() => {
     resetCustomLaunchDraft(chain);
     setStep("mode");
+    setDeployPhase("idle");
+    setDeployStage(0);
+    setMockResult(null);
   }, [chain]);
 
   const markReviewed = useCallback(() => {
@@ -99,6 +120,36 @@ export function CustomLaunchDraftProvider({
   const goAdjacent = useCallback((delta: -1 | 1) => {
     setStep((current) => adjacentStep(current, delta) ?? current);
   }, []);
+
+  const openDeployConfirm = useCallback(() => {
+    const current = getCustomLaunchDraftSnapshot(chain);
+    if (!launchIsReady(current)) return;
+    setDeployPhase("confirming");
+  }, [chain]);
+
+  const closeDeployConfirm = useCallback(() => {
+    setDeployPhase((phase) => (phase === "confirming" ? "idle" : phase));
+  }, []);
+
+  const startMockDeploy = useCallback(() => {
+    const current = getCustomLaunchDraftSnapshot(chain);
+    if (!launchIsReady(current)) return;
+    setCustomLaunchDraft(chain, { ...current, reviewedAt: new Date().toISOString() });
+    setMockResult(createMockDeployResult(current.token.symbol, current.chain, current.markets.primary.quote));
+    setDeployStage(0);
+    setDeployPhase("running");
+    setStep("deploy");
+  }, [chain]);
+
+  useEffect(() => {
+    if (deployPhase !== "running") return;
+    if (deployStage >= MOCK_DEPLOY_STAGES.length) {
+      setDeployPhase("ready");
+      return;
+    }
+    const timer = window.setTimeout(() => setDeployStage((value) => value + 1), 480);
+    return () => window.clearTimeout(timer);
+  }, [deployPhase, deployStage]);
 
   const value = useMemo<CustomLaunchContextValue>(() => {
     return {
@@ -114,10 +165,31 @@ export function CustomLaunchDraftProvider({
       markReviewed,
       configured: configuredCount(draft),
       total: CUSTOM_LAUNCH_STEPS.length,
-      ready: requiredStepsComplete(draft),
+      ready: launchIsReady(draft),
       missing: incompleteSteps(draft),
+      deployPhase,
+      deployStage,
+      mockResult,
+      openDeployConfirm,
+      closeDeployConfirm,
+      startMockDeploy,
     };
-  }, [chain, draft, goAdjacent, markReviewed, patch, reset, step, update]);
+  }, [
+    chain,
+    closeDeployConfirm,
+    deployPhase,
+    deployStage,
+    draft,
+    goAdjacent,
+    markReviewed,
+    mockResult,
+    openDeployConfirm,
+    patch,
+    reset,
+    startMockDeploy,
+    step,
+    update,
+  ]);
 
   return <CustomLaunchContext.Provider value={value}>{children}</CustomLaunchContext.Provider>;
 }

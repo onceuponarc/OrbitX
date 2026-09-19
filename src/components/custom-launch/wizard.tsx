@@ -13,6 +13,7 @@ import { ReviewStep } from "@/components/custom-launch/steps/review";
 import { SecondaryMarketsStep } from "@/components/custom-launch/steps/secondary-markets";
 import { TokenStep } from "@/components/custom-launch/steps/token";
 import { TradingEconomicsStep } from "@/components/custom-launch/steps/trading-economics";
+import { DeploymentConfirmation } from "@/components/custom-launch/deployment-confirmation";
 import { LaunchSummary } from "@/components/custom-launch/launch-summary";
 import type { CustomLaunchStepId } from "@/lib/custom-launch/schema";
 
@@ -29,6 +30,7 @@ export function CustomLaunchWizard({ chain }: { chain: PrintableChain }) {
           </div>
           <LaunchSummary />
         </div>
+        <DeploymentConfirmation />
       </CustomLaunchShell>
     </CustomLaunchDraftProvider>
   );
