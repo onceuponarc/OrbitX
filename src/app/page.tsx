@@ -13,20 +13,21 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const { profile } = await getSessionUser();
-  const { launches } = await loadPadMarket();
+  const { launches, volume } = await loadPadMarket();
   const liveCount = launches.filter((item) => item.status === "live").length;
   const bondedCount = launches.filter((item) => item.status === "graduated").length;
-  const volume = launches.reduce((sum, item) => sum + item.volumeUi, 0);
   const totd = tokenOfTheDay(launches);
   const cards = await viewAllCards().catch(() => []);
 
   return (
     <div className="space-y-5 lg:space-y-8">
-      <LiveRefresh intervalMs={2000} />
+      <LiveRefresh />
       <OrbitHero
         liveCount={liveCount}
         bondedCount={bondedCount}
-        volumeUi={volume}
+        volumeDayUsd={volume.dayUsd}
+        volumeWeekUsd={volume.weekUsd}
+        volumeTotalUsd={volume.totalUsd}
         handle={profile?.handle ?? null}
       />
       <div className="grid grid-cols-3 gap-2 lg:hidden">
