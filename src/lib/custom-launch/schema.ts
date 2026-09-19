@@ -1,5 +1,8 @@
 import type { PrintableChain } from "@onceupon/config/solana";
+import { createFeeConfig, feeConfigComplete, type FeeConfig } from "@/lib/custom-launch/fees";
 import { createLaunchModeState, type CustomLaunchModeState } from "@/lib/custom-launch/modes";
+import { createSupplyPlan, supplyPlanBalanced, type SupplyPlan } from "@/lib/custom-launch/supply";
+import { createTokenConfig, tokenConfigComplete, type TokenConfig } from "@/lib/custom-launch/token";
 
 export const CUSTOM_LAUNCH_STEPS = [
   { id: "mode", label: "Launch Mode", short: "Mode" },
@@ -56,7 +59,7 @@ export const CUSTOM_CHAIN_META: Record<PrintableChain, CustomChainMeta> = {
     venue: "pump.fun · Jupiter",
     quote: "SOL",
     native: "SOL",
-    decimals: 6,
+    decimals: 9,
   },
   arc: {
     id: "arc",
@@ -81,25 +84,14 @@ export const CUSTOM_CHAIN_META: Record<PrintableChain, CustomChainMeta> = {
 };
 
 export type CustomLaunchDraft = {
-  version: 2;
+  version: 3;
   chain: PrintableChain;
   mode: CustomLaunchModeState;
-  token: {
-    name: string;
-    symbol: string;
-    decimals: number;
-    supply: string;
-    description: string;
-    imageUrl: string;
-    website: string;
-    twitter: string;
-    telegram: string;
-  };
+  token: TokenConfig;
+  supply: SupplyPlan;
+  fees: FeeConfig;
   economics: {
     quote: QuotePreference;
-    buyFeeBps: number;
-    sellFeeBps: number;
-    creatorShareBps: number;
     maxWalletBps: number;
     maxTxBps: number;
     transferRestricted: boolean;
@@ -134,25 +126,14 @@ export type CustomLaunchDraft = {
 export function createCustomLaunchDraft(chain: PrintableChain): CustomLaunchDraft {
   const meta = CUSTOM_CHAIN_META[chain];
   return {
-    version: 2,
+    version: 3,
     chain,
     mode: createLaunchModeState(),
-    token: {
-      name: "",
-      symbol: "",
-      decimals: meta.decimals,
-      supply: "1000000000",
-      description: "",
-      imageUrl: "",
-      website: "",
-      twitter: "",
-      telegram: "",
-    },
+    token: createTokenConfig(meta.decimals),
+    supply: createSupplyPlan(),
+    fees: createFeeConfig(createLaunchModeState()),
     economics: {
       quote: chain === "arc" ? "usdc" : "native",
-      buyFeeBps: 100,
-      sellFeeBps: 100,
-      creatorShareBps: 8000,
       maxWalletBps: 200,
       maxTxBps: 100,
       transferRestricted: false,
@@ -196,13 +177,9 @@ export function stepStatus(draft: CustomLaunchDraft, id: CustomLaunchStepId): St
     case "mode":
       return draft.mode.primary ? "complete" : "incomplete";
     case "token":
-      return draft.token.name.trim() && draft.token.symbol.trim() && draft.token.supply.trim()
-        ? "complete"
-        : "incomplete";
+      return tokenConfigComplete(draft.token) && supplyPlanBalanced(draft.supply) ? "complete" : "incomplete";
     case "economics":
-      return Number.isFinite(draft.economics.buyFeeBps) && Number.isFinite(draft.economics.sellFeeBps)
-        ? "complete"
-        : "incomplete";
+      return feeConfigComplete(draft.mode, draft.fees) ? "complete" : "incomplete";
     case "primary":
       return draft.primary.raiseTarget.trim() && allocationTotalBps(draft) === 10_000
         ? "complete"

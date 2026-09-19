@@ -236,6 +236,20 @@
       linear-gradient(90deg, rgb(214 255 61 / 6%), transparent 40%);
     box-shadow: 0 0 0 1px rgb(255 255 255 / 5%) inset;
   }
+
+  .ox-router-pulse {
+    animation: ox-router-pulse 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes ox-router-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 @keyframes pad-in {

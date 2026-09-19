@@ -62,7 +62,7 @@ export function DeployStep() {
           <div>
             <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">Local draft</dt>
             <dd className="mt-1 font-mono text-xs text-white/70">
-              orbitx.custom-launch.v2.{draft.chain}
+              orbitx.custom-launch.v3.{draft.chain}
             </dd>
           </div>
         </dl>

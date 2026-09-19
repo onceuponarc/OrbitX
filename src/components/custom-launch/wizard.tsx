@@ -13,18 +13,21 @@ import { ReviewStep } from "@/components/custom-launch/steps/review";
 import { SecondaryMarketsStep } from "@/components/custom-launch/steps/secondary-markets";
 import { TokenStep } from "@/components/custom-launch/steps/token";
 import { TradingEconomicsStep } from "@/components/custom-launch/steps/trading-economics";
+import { LaunchSummary } from "@/components/custom-launch/launch-summary";
 import type { CustomLaunchStepId } from "@/lib/custom-launch/schema";
 
 export function CustomLaunchWizard({ chain }: { chain: PrintableChain }) {
   return (
     <CustomLaunchDraftProvider key={chain} chain={chain}>
       <CustomLaunchShell>
+        <LaunchSummary variant="mobile" />
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           <StepRail />
           <div className="min-w-0 flex-1 space-y-4">
             <StepStage />
             <StepFooter />
           </div>
+          <LaunchSummary />
         </div>
       </CustomLaunchShell>
     </CustomLaunchDraftProvider>

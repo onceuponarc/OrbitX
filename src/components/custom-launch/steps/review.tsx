@@ -55,10 +55,7 @@ export function ReviewStep() {
       <dl className="mt-5 grid gap-3 rounded-2xl border border-white/10 px-4 py-4 text-sm sm:grid-cols-2">
         <Row label="Token" value={draft.token.name ? `${draft.token.name} · $${draft.token.symbol || "—"}` : "—"} />
         <Row label="Supply" value={draft.token.supply || "—"} />
-        <Row
-          label="Fees"
-          value={`buy ${formatBps(draft.economics.buyFeeBps)} · sell ${formatBps(draft.economics.sellFeeBps)}`}
-        />
+        <Row label="Fees" value={`${formatBps(draft.fees.tradingFeeBps)} trading fee`} />
         <Row
           label="Primary"
           value={
@@ -104,7 +101,7 @@ function summaryFor(
     case "token":
       return draft.token.name ? `${draft.token.name} ($${draft.token.symbol || "—"})` : "Name and ticker required";
     case "economics":
-      return `${formatBps(draft.economics.buyFeeBps)} buy / ${formatBps(draft.economics.sellFeeBps)} sell`;
+      return `${formatBps(draft.fees.tradingFeeBps)} trading fee`;
     case "primary":
       return draft.primary.raiseTarget ? `${draft.primary.raiseTarget} ${quote}` : "Raise target required";
     case "secondary":

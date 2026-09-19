@@ -114,4 +114,46 @@ stack = toggleStrategyModule(stack, "liquidity");
 const buybackMix = composeStrategyPreview(stack);
 assert(buybackMix.length >= 3, "buyback + burn + liquidity can stack");
 
-console.log(JSON.stringify({ ok: true, customLaunch: "mode-system" }));
+const protocol = readFileSync(new URL("../src/lib/custom-launch/protocol.ts", import.meta.url), "utf8");
+const tokenStep = readFileSync(new URL("../src/components/custom-launch/steps/token.tsx", import.meta.url), "utf8");
+const econ = readFileSync(new URL("../src/components/custom-launch/steps/trading-economics.tsx", import.meta.url), "utf8");
+const fees = readFileSync(new URL("../src/lib/custom-launch/fees.ts", import.meta.url), "utf8");
+const dest = "4qD4UBf9y9wRM51qHYccucAJadB24PRSEku7JWpXV6wu";
+assert(protocol.includes(dest), "OrbitX destination is centralized in protocol.ts");
+assert(protocol.includes("allocationBps"), "protocol share is centralized");
+assert(!tokenStep.includes(dest), "token UI must not hard-code the protocol wallet");
+assert(!econ.includes(dest), "economics UI must not hard-code the protocol wallet");
+assert(tokenStep.includes("TokenPreview"), "token step has a live preview");
+assert(tokenStep.includes("SupplyBreakdown"), "token step has supply breakdown");
+assert(econ.includes("FeeSlider"), "economics has a trading fee control");
+assert(econ.includes("ProtocolDestination"), "economics shows the OrbitX destination");
+assert(econ.includes("FeeAllocationBuilder"), "economics has fee allocation");
+assert(econ.includes("FeeRouter"), "economics has the fee router");
+assert(wizard.includes("LaunchSummary"), "wizard mounts the live summary");
+assert(fees.includes("visibleFeeDestinations"), "fee destinations follow launch mode");
+assert(!econ.includes("/api/"), "economics must not call APIs");
+
+const { validateTokenConfig, createTokenConfig } = await import("../src/lib/custom-launch/token.ts");
+const blank = validateTokenConfig(createTokenConfig(9));
+assert(blank.name && blank.symbol && blank.imageUrl, "token validation flags missing identity");
+const good = validateTokenConfig({
+  ...createTokenConfig(9),
+  name: "Desk Coin",
+  symbol: "DESK",
+  imageUrl: "https://orbitx.example/desk.png",
+});
+assert(Object.keys(good).length === 0, "valid token config passes");
+
+const { createSupplyPlan, supplyAllocatedBps, supplyPlanBalanced } = await import("../src/lib/custom-launch/supply.ts");
+const supply = createSupplyPlan();
+assert(supplyAllocatedBps(supply) === 10_000, "default supply plan is 100%");
+assert(supplyPlanBalanced(supply), "default supply plan is balanced");
+
+const { ORBITX_PROTOCOL } = await import("../src/lib/custom-launch/protocol.ts");
+assert(fees.includes('charity: ["orbitx", "creator", "charity", "holders", "liquidity"]'), "charity mode prioritizes charity lanes");
+assert(fees.includes('flywheel: ["orbitx", "buyback", "liquidity", "burn", "treasury", "holders"]'), "flywheel mode prioritizes flywheel lanes");
+assert(fees.includes("id === \"orbitx\""), "OrbitX allocation is locked");
+assert((1000 * 300) / 10_000 === 30, "$1000 at 3% is $30 of fees");
+assert(ORBITX_PROTOCOL.destination === dest, "protocol constant matches the desk wallet");
+
+console.log(JSON.stringify({ ok: true, customLaunch: "token-economics" }));

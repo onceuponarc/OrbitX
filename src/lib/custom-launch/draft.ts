@@ -1,4 +1,5 @@
 import type { PrintableChain } from "@onceupon/config/solana";
+import { createFeeConfig, FEE_DESTINATION_IDS, type FeeConfig } from "@/lib/custom-launch/fees";
 import {
   createLaunchModeState,
   isLaunchStrategyId,
@@ -6,9 +7,11 @@ import {
   type LaunchStrategyId,
   type StrategyIntent,
 } from "@/lib/custom-launch/modes";
+import { createSupplyPlan, SUPPLY_BUCKETS, type SupplyPlan } from "@/lib/custom-launch/supply";
+import { type TokenConfig, type TokenLink } from "@/lib/custom-launch/token";
 import { createCustomLaunchDraft, type CustomLaunchDraft } from "@/lib/custom-launch/schema";
 
-export const CUSTOM_LAUNCH_STORAGE_PREFIX = "orbitx.custom-launch.v2.";
+export const CUSTOM_LAUNCH_STORAGE_PREFIX = "orbitx.custom-launch.v3.";
 
 export function customLaunchStorageKey(chain: PrintableChain) {
   return `${CUSTOM_LAUNCH_STORAGE_PREFIX}${chain}`;
@@ -19,21 +22,69 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function parseCustomLaunchDraft(raw: unknown, chain: PrintableChain): CustomLaunchDraft | null {
-  if (!isRecord(raw) || (raw.version !== 1 && raw.version !== 2) || raw.chain !== chain) return null;
+  if (!isRecord(raw) || raw.chain !== chain) return null;
+  if (raw.version !== 1 && raw.version !== 2 && raw.version !== 3) return null;
   const base = createCustomLaunchDraft(chain);
   if (!isRecord(raw.mode) || !isRecord(raw.token) || !isRecord(raw.economics)) return null;
   if (!isRecord(raw.primary) || !isRecord(raw.secondary) || !isRecord(raw.automation)) return null;
+  const mode = parseLaunchMode(raw.mode);
 
   return {
     ...base,
-    version: 2,
-    mode: parseLaunchMode(raw.mode),
-    token: { ...base.token, ...pick(raw.token, base.token) },
+    version: 3,
+    mode,
+    token: parseTokenConfig(raw.token, base.token),
+    supply: parseSupplyPlan(raw.supply),
+    fees: parseFeeConfig(raw.fees, mode),
     economics: { ...base.economics, ...pick(raw.economics, base.economics) },
     primary: { ...base.primary, ...pick(raw.primary, base.primary) },
     secondary: { ...base.secondary, ...pick(raw.secondary, base.secondary) },
     automation: { ...base.automation, ...pick(raw.automation, base.automation) },
     reviewedAt: typeof raw.reviewedAt === "string" || raw.reviewedAt === null ? raw.reviewedAt : null,
+  };
+}
+
+function parseTokenConfig(raw: Record<string, unknown>, fallback: TokenConfig): TokenConfig {
+  const picked = { ...fallback, ...pick(raw, { ...fallback, extraLinks: [] }) };
+  const extraLinks = Array.isArray(raw.extraLinks)
+    ? raw.extraLinks.flatMap((row): TokenLink[] => {
+        if (!isRecord(row) || typeof row.label !== "string" || typeof row.url !== "string") return [];
+        return [{ label: row.label, url: row.url }];
+      })
+    : [];
+  return { ...picked, extraLinks };
+}
+
+function parseSupplyPlan(raw: unknown): SupplyPlan {
+  const base = createSupplyPlan();
+  if (!isRecord(raw) || !Array.isArray(raw.allocations)) return base;
+  const mapped = new Map(base.allocations.map((row) => [row.id, row]));
+  for (const row of raw.allocations) {
+    if (!isRecord(row) || typeof row.id !== "string") continue;
+    const current = mapped.get(row.id as SupplyPlan["allocations"][number]["id"]);
+    if (!current) continue;
+    mapped.set(current.id, {
+      ...current,
+      bps: Number.isFinite(Number(row.bps)) ? Math.max(0, Math.min(10_000, Number(row.bps))) : current.bps,
+    });
+  }
+  return { allocations: SUPPLY_BUCKETS.map((bucket) => mapped.get(bucket.id) ?? { ...bucket, bps: 0 }) };
+}
+
+function parseFeeConfig(raw: unknown, mode: CustomLaunchModeState): FeeConfig {
+  const base = createFeeConfig(mode);
+  if (!isRecord(raw)) return base;
+  const shares: FeeConfig["shares"] = { ...base.shares };
+  if (isRecord(raw.shares)) {
+    for (const id of FEE_DESTINATION_IDS) {
+      if (id === "orbitx") continue;
+      if (typeof raw.shares[id] === "number") shares[id] = Math.max(0, Math.min(10_000, raw.shares[id]));
+    }
+  }
+  return {
+    tradingFeeBps:
+      typeof raw.tradingFeeBps === "number" ? Math.max(0, Math.min(500, raw.tradingFeeBps)) : base.tradingFeeBps,
+    shares,
   };
 }
 

@@ -9,6 +9,7 @@ export function StepFooter() {
   const prev = adjacentStep(step, -1);
   const next = adjacentStep(step, 1);
   const status = useStepStatus(step);
+  const blocked = (step === "token" || step === "economics") && status !== "complete";
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -18,11 +19,13 @@ export function StepFooter() {
       <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/40">
         {step === "deploy"
           ? "Preview only — nothing is broadcast"
-          : status === "complete" || status === "ready"
-            ? "This step is set"
-            : "This step still needs input"}
+          : blocked
+            ? "Fix validation before continuing"
+            : status === "complete" || status === "ready"
+              ? "This step is set"
+              : "This step still needs input"}
       </p>
-      <Button type="button" disabled={!next} onClick={() => goAdjacent(1)}>
+      <Button type="button" disabled={!next || blocked} onClick={() => goAdjacent(1)}>
         Continue
       </Button>
     </div>

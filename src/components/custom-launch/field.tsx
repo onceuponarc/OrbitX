@@ -5,20 +5,41 @@ import { cn } from "@/lib/utils";
 export function Field({
   label,
   hint,
+  error,
+  info,
   children,
   className,
 }: {
   label: string;
   hint?: string;
+  error?: string;
+  info?: string;
   children: ReactNode;
   className?: string;
 }) {
   return (
     <div className={cn("block space-y-1.5", className)}>
-      <Label className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/50">{label}</Label>
+      <div className="flex items-center gap-2">
+        <Label className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/50">{label}</Label>
+        {info ? <InfoTip text={info} /> : null}
+      </div>
       {children}
-      {hint ? <p className="text-xs leading-relaxed text-white/40">{hint}</p> : null}
+      {error ? <p className="text-xs text-heat">{error}</p> : null}
+      {!error && hint ? <p className="text-xs leading-relaxed text-white/40">{hint}</p> : null}
     </div>
+  );
+}
+
+export function InfoTip({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-flex">
+      <span className="flex size-4 items-center justify-center rounded-full border border-white/20 font-mono text-[9px] text-white/45">
+        i
+      </span>
+      <span className="pointer-events-none absolute bottom-full left-0 z-20 mb-2 hidden w-56 rounded-xl border border-white/10 bg-ink px-3 py-2 text-xs leading-relaxed text-white/70 shadow-xl group-hover:block group-focus-within:block">
+        {text}
+      </span>
+    </span>
   );
 }
 
