@@ -7,16 +7,15 @@ export const metadata = { title: "Sign in with X" };
 
 export default function LoginPage() {
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-8">
-      <div className="glass rounded-3xl border border-arc/25 p-8 sm:p-10">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-arc">OrbitX</p>
-        <h1 className="font-heading mt-3 text-4xl font-bold">Sign in with X</h1>
-        <p className="mt-3 text-parchment/75">
-          Identity is X through Supabase. OrbitX is a multi-chain launchpad. Keys live on the wallet
-          desk, then import them into MetaMask or Rabby.
+    <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-6">
+      <div className="pad-panel rounded-[1.6rem] p-7 sm:p-10">
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-gold">OrbitX</p>
+        <h1 className="mt-3 text-4xl font-semibold tracking-tight">Sign in</h1>
+        <p className="mt-3 text-sm text-white/60">
+          Identity is X. The desk wallet opens after you sign in — then launch and trade without an extension.
         </p>
         <div className="mt-8 flex flex-col gap-3">
-          <Button asChild className="w-full rounded-full">
+          <Button asChild className="h-12 w-full rounded-2xl text-base">
             <a href="/auth/start">
               <XMark className="size-3.5" />
               Continue with X
@@ -27,7 +26,7 @@ export default function LoginPage() {
           </Button>
         </div>
         <AgentCodeForm />
-        <p className="mt-6 text-center text-xs text-parchment/45">No email signup. No password.</p>
+        <p className="mt-6 text-center text-xs text-white/40">No email signup. No password.</p>
       </div>
     </div>
   );

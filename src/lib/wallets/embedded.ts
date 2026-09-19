@@ -5,7 +5,10 @@ import bs58 from "bs58";
 import { createServiceClient } from "@/lib/supabase/service";
 import { SOLANA } from "@onceupon/config/solana";
 import { solanaConnection } from "@/lib/solana/connection";
-import { generateKeypair, openKeypair, sealKeypair } from "@/lib/solana/keys";
+import { encodeSecret, openKeypair } from "@/lib/solana/keys";
+import { sealSecret } from "@/lib/crypto/secret-box";
+import { packDeskSecret } from "@/lib/wallets/desk-secret";
+import { createSolanaDeskWallet } from "@/lib/wallets/mnemonic";
 
 const SOLANA_CAIP = SOLANA.caip2;
 
@@ -23,13 +26,13 @@ export async function ensureSolanaWallet(userId: string): Promise<{ address: str
     return { address: existing.address, created: false };
   }
 
-  const keypair = generateKeypair();
-  const address = keypair.publicKey.toBase58();
+  const built = createSolanaDeskWallet();
+  const address = built.address;
   const { error } = await service.from("wallet_secrets").insert({
     user_id: userId,
     chain: "solana",
     address,
-    ciphertext: sealKeypair(keypair),
+    ciphertext: sealSecret(packDeskSecret(encodeSecret(built.keypair), built.mnemonic)),
   });
   if (error) throw new Error("Could not store the embedded wallet.");
   await upsertPublicWallet(userId, address);

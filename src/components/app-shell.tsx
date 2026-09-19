@@ -1,6 +1,7 @@
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PadBackground } from "@/components/pad/pad-background";
+import { PadSidebar } from "@/components/pad/pad-sidebar";
 import { TabBar } from "@/components/pad/tab-bar";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth";
@@ -22,12 +23,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <Providers>
-      <div className="relative flex min-h-full flex-col text-parchment">
+      <div className="pad-app relative flex min-h-full flex-col text-parchment lg:flex-row">
         <PadBackground />
-        <SiteHeader profile={profile} onlineCount={onlineCount} />
-        <PwaRegister />
-        <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 pb-8 pt-5 sm:pt-8">{children}</main>
-        <SiteFooter />
+        <PadSidebar onlineCount={onlineCount} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <SiteHeader profile={profile} />
+          <PwaRegister />
+          <main className="pad-main mx-auto flex w-full max-w-6xl flex-1 flex-col lg:max-w-none">{children}</main>
+          <SiteFooter />
+        </div>
         <TabBar />
       </div>
     </Providers>

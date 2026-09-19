@@ -112,7 +112,7 @@ export default function WhitepaperPage() {
           </p>
           <p>
             That also means it&apos;s custodial: OrbitX holds the key, not just a session token. You can export any
-            desk wallet&apos;s private key yourself from Wallet → Export keys at any time — it&apos;s your wallet, on real
+            desk wallet&apos;s private key or recovery phrase yourself from Wallet → Export keys at any time — it&apos;s your wallet, on real
             chains, and nothing stops you from moving to self-custody. See{" "}
             <Link href="/privacy" className="underline">
               Privacy

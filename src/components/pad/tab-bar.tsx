@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Layers3, Rocket, Sparkles, UserRound } from "lucide-react";
+import { ArrowLeftRight, Home, Rocket, UserRound, Wallet } from "lucide-react";
+import { APP_TABS, navActive } from "@/components/pad/nav";
 import { cn } from "@/lib/utils";
 
-const TABS: { href: string; label: string; icon: typeof Home; match: string }[] = [
-  { href: "/", label: "Board", icon: Home, match: "/" },
-  { href: "/launch", label: "Launch", icon: Rocket, match: "/launch" },
-  { href: "/cards", label: "Cards", icon: Layers3, match: "/cards" },
-  { href: "/drop", label: "Drop", icon: Sparkles, match: "/drop" },
-  { href: "/you", label: "You", icon: UserRound, match: "/you" },
-];
+const ICONS = {
+  "/": Home,
+  "/trade": ArrowLeftRight,
+  "/launch": Rocket,
+  "/wallet": Wallet,
+  "/you": UserRound,
+} as const;
 
 export function TabBar() {
   const pathname = usePathname() ?? "/";
@@ -19,33 +20,33 @@ export function TabBar() {
   return (
     <nav
       aria-label="Primary"
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[max(10px,env(safe-area-inset-bottom))] lg:hidden"
+      className="glass-tab fixed inset-x-0 bottom-0 z-50 border-t border-white/8 lg:hidden"
+      style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}
     >
-      <div className="glass-tab pointer-events-auto flex w-full max-w-[440px] items-stretch justify-between rounded-full border border-white/10 px-1.5 py-1">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const active =
-            tab.match === "/"
-              ? pathname === "/"
-              : pathname === tab.href || pathname === tab.match || pathname.startsWith(`${tab.match}/`);
-          const launch = tab.match === "/launch";
+      <div className="mx-auto grid h-[4.15rem] max-w-lg grid-cols-5 items-end px-1">
+        {APP_TABS.map((tab) => {
+          const Icon = ICONS[tab.href];
+          const on = navActive(pathname, tab.href, tab.match);
+          const launch = "primary" in tab && tab.primary;
           return (
             <Link
               key={tab.href}
               href={tab.href}
               className={cn(
-                "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-1 py-1 text-[10px] font-medium transition-colors",
-                active ? "text-white" : "text-white/40 hover:text-white",
+                "flex flex-col items-center justify-end gap-0.5 pb-1.5 text-[10px] font-semibold tracking-wide",
+                on || launch ? "text-gold" : "text-white/40",
               )}
             >
               <span
                 className={cn(
-                  "flex size-8 items-center justify-center rounded-full transition",
-                  active && launch && "bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.25)]",
-                  active && !launch && "bg-white/12",
+                  "flex items-center justify-center rounded-2xl transition",
+                  launch
+                    ? "mb-0.5 size-12 -translate-y-2 bg-gold text-ink shadow-[0_10px_28px_rgba(214,255,61,0.35)]"
+                    : "size-8",
+                  on && !launch && "bg-gold/12",
                 )}
               >
-                <Icon className="size-4" strokeWidth={2.1} />
+                <Icon className={cn(launch ? "size-5" : "size-5")} strokeWidth={2.15} />
               </span>
               {tab.label}
             </Link>

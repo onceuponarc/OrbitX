@@ -42,7 +42,7 @@ export function WalletDesk() {
   }
 
   return (
-    <div className="desk-3d space-y-4 rounded-3xl border border-white/10 p-5">
+    <div className="desk-3d pad-panel space-y-4 rounded-[1.4rem] p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/40">Deposit addresses</p>
@@ -83,11 +83,19 @@ export function WalletDesk() {
   );
 }
 
+type Revealed = {
+  chain: string;
+  address?: string;
+  secret: string;
+  mnemonic: string | null;
+  phraseKind?: "hd" | "words";
+};
+
 export function WalletKeysDesk() {
   const [desk, setDesk] = useState<Desk | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [secret, setSecret] = useState("");
-  const [shown, setShown] = useState<string | null>(null);
+  const [shown, setShown] = useState<Revealed | null>(null);
   const [unlock, setUnlock] = useState(false);
 
   useEffect(() => {
@@ -103,12 +111,26 @@ export function WalletKeysDesk() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, chain, secret: action === "import" ? secret : undefined }),
     });
-    const body = await readApiJson<{ error?: string; secret?: string; address?: string }>(res);
+    const body = await readApiJson<{
+      error?: string;
+      secret?: string;
+      address?: string;
+      mnemonic?: string | null;
+      phraseKind?: "hd" | "words";
+    }>(res);
     if (!res.ok) {
       setError(body.error ?? "Failed.");
       return;
     }
-    if (body.secret) setShown(body.secret);
+    if (body.secret) {
+      setShown({
+        chain,
+        address: body.address,
+        secret: body.secret,
+        mnemonic: body.mnemonic ?? null,
+        phraseKind: body.phraseKind,
+      });
+    }
     await loadDesk().then(setDesk).catch(() => undefined);
   }
 
@@ -116,8 +138,8 @@ export function WalletKeysDesk() {
     <div className="space-y-4 rounded-3xl border border-amber-300/20 bg-amber-300/5 p-5">
       <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-amber-200/70">Danger zone</p>
       <p className="text-sm text-white/60">
-        Exporting a key shows the private secret for that desk wallet. Anyone with it can drain the address. Only do
-        this on a device you trust.
+        Export shows both the private key and a recovery phrase. Some wallets only accept a phrase. Anyone with either
+        can drain the address. Only do this on a device you trust.
       </p>
       {!unlock ? (
         <Button type="button" variant="outline" onClick={() => setUnlock(true)}>
@@ -131,13 +153,17 @@ export function WalletKeysDesk() {
                 <p className="text-sm font-semibold">{chain.label}</p>
                 <p className="mt-2 break-all font-mono text-[11px] text-white/45">{desk?.wallets[chain.id] ?? "—"}</p>
                 <Button type="button" className="mt-3" variant="outline" size="sm" onClick={() => void act(chain.id, "export")}>
-                  Reveal key
+                  Reveal key + phrase
                 </Button>
               </div>
             ))}
           </div>
           <div>
-            <Input value={secret} onChange={(e) => setSecret(e.target.value)} placeholder="Paste a secret to import" />
+            <Input
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              placeholder="Private key or 12/24-word phrase"
+            />
             <div className="mt-2 flex flex-wrap gap-2">
               {CHAINS.map((chain) => (
                 <Button key={chain.id} type="button" variant="outline" size="sm" onClick={() => void act(chain.id, "import")}>
@@ -147,12 +173,40 @@ export function WalletKeysDesk() {
             </div>
           </div>
           {shown ? (
-            <div className="rounded-2xl border border-amber-300/30 bg-black/40 p-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-amber-200/70">Private key</p>
-              <p className="mt-2 break-all font-mono text-xs">{shown}</p>
-              <Button type="button" className="mt-3" size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(shown)}>
-                Copy key
-              </Button>
+            <div className="space-y-3 rounded-2xl border border-amber-300/30 bg-black/40 p-3">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-amber-200/70">Private key</p>
+                <p className="mt-2 break-all font-mono text-xs">{shown.secret}</p>
+                <Button
+                  type="button"
+                  className="mt-3"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void navigator.clipboard.writeText(shown.secret)}
+                >
+                  Copy private key
+                </Button>
+              </div>
+              {shown.mnemonic ? (
+                <div className="border-t border-white/10 pt-3">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-amber-200/70">Recovery phrase</p>
+                  <p className="mt-2 text-sm leading-7 text-white">{shown.mnemonic}</p>
+                  <p className="mt-2 text-xs text-white/45">
+                    {shown.phraseKind === "hd"
+                      ? "Restore this 12-word phrase in Phantom, Solflare, MetaMask, Rabby, or Trust. Same wallet as the private key."
+                      : "24-word backup of this exact key. Paste it back into OrbitX. In Phantom or MetaMask use Import private key — Restore from phrase in those apps uses different math and will open another address."}
+                  </p>
+                  <Button
+                    type="button"
+                    className="mt-3"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void navigator.clipboard.writeText(shown.mnemonic ?? "")}
+                  >
+                    Copy recovery phrase
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </>
