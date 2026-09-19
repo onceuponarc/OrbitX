@@ -162,7 +162,7 @@ export function WalletKeysDesk() {
             <Input
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
-              placeholder="Paste a private key or 12/24-word recovery phrase"
+              placeholder="Private key or 12/24-word phrase"
             />
             <div className="mt-2 flex flex-wrap gap-2">
               {CHAINS.map((chain) => (
