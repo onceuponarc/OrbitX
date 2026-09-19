@@ -13,53 +13,81 @@ export function OrbitHero({
   handle: string | null;
 }) {
   return (
-    <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-b from-white/[0.04] via-transparent to-transparent">
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(60% 60% at 80% 10%, rgb(29 78 216 / 14%), transparent 70%), radial-gradient(50% 50% at 10% 100%, rgb(96 165 250 / 12%), transparent 70%)",
-        }}
-      />
-      <div className="relative z-10 p-6 sm:p-10 lg:p-14">
-        <p className="text-sm text-arc/80">{handle ? `Welcome back, @${handle}` : "One desk, three chains"}</p>
-        <h1 className="font-display mt-3 max-w-2xl text-[2.75rem] leading-[1.05] sm:text-6xl">
-          Launch where your community already trades.
+    <section className="pad-fade">
+      <div className="lg:hidden">
+        <p className="text-xs text-white/45">{handle ? `Hey @${handle}` : "In-app desk · three chains"}</p>
+        <h1 className="mt-1 text-[1.85rem] font-semibold leading-[1.05] tracking-tight">
+          The pad is <span className="text-gold">live</span>
         </h1>
-        <p className="mt-5 max-w-md text-base leading-7 text-white/60">
-          OrbitX signs every launch from an in-app desk wallet — no Phantom, no MetaMask. Solana and Robinhood
-          Chain launches are fully live. Pick a chain, set your terms, and your token is tradable the moment it
-          lands.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Link
-            href="/launch"
-            className="rounded-full bg-white px-6 py-3 text-sm font-medium text-black transition-transform hover:-translate-y-0.5"
-          >
-            Launch a token
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <Stat label="Live" value={String(liveCount)} />
+          <Stat label="Graduated" value={String(bondedCount)} />
+          <Stat label="Volume" value={formatUsd(volumeUi)} accent />
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Link href="/launch" className="rounded-2xl bg-gold py-3 text-center text-sm font-semibold text-ink">
+            Launch
           </Link>
           <Link
-            href="/cards"
-            className="rounded-full border border-white/15 px-6 py-3 text-sm font-medium text-white/80 transition-colors hover:border-white/30 hover:text-white"
+            href="/trade"
+            className="rounded-2xl border border-white/12 bg-white/5 py-3 text-center text-sm font-semibold text-white"
           >
-            Explore press cards
+            Trade
           </Link>
         </div>
-        <dl className="mt-10 flex flex-wrap gap-x-8 gap-y-4 border-t border-white/10 pt-6">
+      </div>
+
+      <div className="pad-panel relative hidden overflow-hidden rounded-[1.6rem] lg:block">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_100%_0%,rgba(214,255,61,0.14),transparent_55%),radial-gradient(50%_70%_at_0%_100%,rgba(255,90,31,0.12),transparent_60%)]" />
+        <div className="relative grid gap-8 p-8 xl:grid-cols-[minmax(0,1.4fr)_auto] xl:items-end">
           <div>
-            <dt className="text-xs text-white/40">Live now</dt>
-            <dd className="font-display mt-1 text-3xl">{liveCount}</dd>
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-gold/80">
+              {handle ? `Welcome back @${handle}` : "Launch control"}
+            </p>
+            <h1 className="mt-3 max-w-xl text-5xl font-semibold tracking-tight">
+              Launch where the tape is already moving.
+            </h1>
+            <p className="mt-4 max-w-lg text-sm leading-6 text-white/55">
+              OrbitX signs every launch from an in-app desk. Solana and Robinhood Chain are live. Arc is in beta.
+              No Phantom. No MetaMask popup.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href="/launch" className="rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-ink">
+                Launch a token
+              </Link>
+              <Link
+                href="/cards"
+                className="rounded-full border border-white/12 px-5 py-2.5 text-sm font-medium text-white/80 hover:text-white"
+              >
+                Press cards
+              </Link>
+            </div>
           </div>
-          <div>
-            <dt className="text-xs text-white/40">Graduated</dt>
-            <dd className="font-display mt-1 text-3xl">{bondedCount}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-white/40">Volume traded</dt>
-            <dd className="font-display mt-1 text-3xl text-gold">{formatUsd(volumeUi)}</dd>
-          </div>
-        </dl>
+          <dl className="grid grid-cols-3 gap-6">
+            <div>
+              <dt className="text-xs text-white/40">Live now</dt>
+              <dd className="mt-1 text-4xl font-semibold tracking-tight">{liveCount}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-white/40">Graduated</dt>
+              <dd className="mt-1 text-4xl font-semibold tracking-tight">{bondedCount}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-white/40">Volume</dt>
+              <dd className="mt-1 text-4xl font-semibold tracking-tight text-gold">{formatUsd(volumeUi)}</dd>
+            </div>
+          </dl>
+        </div>
       </div>
     </section>
+  );
+}
+
+function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="pad-panel rounded-2xl px-3 py-3">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">{label}</p>
+      <p className={`mt-1 truncate text-lg font-semibold tabular-nums ${accent ? "text-gold" : "text-white"}`}>{value}</p>
+    </div>
   );
 }

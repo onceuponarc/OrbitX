@@ -7,7 +7,7 @@ const LANES = [
     href: "/launch/arc",
     label: "Arc",
     status: "Argus · live",
-    body: "Fixed-supply Argus v4 launch. The in-app wallet seeds the Uniswap v4 USDC pool in the same transaction so it does not open at $0 liquidity.",
+    body: "Fixed-supply Argus v4. The desk seeds the Uniswap v4 USDC pool in the same transaction.",
     beta: true,
   },
   {
@@ -21,7 +21,7 @@ const LANES = [
     href: "/launch/robinhood",
     label: "Robinhood Chain",
     status: "Pons v2 · live",
-    body: "Fully live, out of beta. Curve live at create. Trades feed it, then a locked Uniswap v4 LP. Fund the in-app RH wallet with ETH.",
+    body: "Fully live, out of beta. Curve live at create. Fund the in-app RH wallet with ETH.",
     beta: false,
   },
 ];
@@ -30,30 +30,33 @@ export const metadata = { title: "Launch" };
 
 export default function LaunchHubPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <section>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/40">Launch desk</p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight">Three live venues</h1>
-        <p className="mt-3 max-w-2xl text-white/55">
-          Only paths that print a tradable coin. Same in-app wallet on each chain. Fund it, launch, fees come back
-          here.
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-gold/80">Launch desk</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight lg:text-4xl">Pick a venue</h1>
+        <p className="mt-2 max-w-2xl text-sm text-white/55 lg:text-base">
+          Only paths that print a tradable coin. Same in-app wallet on each chain.
         </p>
-        <div className="mt-5">
+        <div className="mt-4">
           <LaunchChainSwitch current="/launch" />
         </div>
       </section>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3 lg:gap-4">
         {LANES.map((lane) => (
-          <Link key={lane.href} href={lane.href} className="rounded-3xl border border-white/10 p-5 hover:border-white/30">
+          <Link key={lane.href} href={lane.href} className="pad-panel rounded-[1.4rem] p-5 hover:border-gold/35">
             <div className="flex items-center justify-between gap-2">
-              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-cyan-300">{lane.status}</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-arc">{lane.status}</p>
               {lane.beta ? (
-                <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-amber-300">
+                <span className="rounded-full bg-heat/15 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-heat">
                   Beta
                 </span>
-              ) : null}
+              ) : (
+                <span className="rounded-full bg-buy/12 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-buy">
+                  Live
+                </span>
+              )}
             </div>
-            <h2 className="mt-2 text-2xl font-semibold">{lane.label}</h2>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight">{lane.label}</h2>
             <p className="mt-2 text-sm text-white/55">{lane.body}</p>
           </Link>
         ))}

@@ -91,7 +91,7 @@ export function HoldingsPanel() {
   ];
 
   return (
-    <section className="space-y-3 rounded-3xl border border-white/10 p-5">
+    <section className="pad-panel space-y-3 rounded-[1.4rem] p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/40">Live holdings</p>

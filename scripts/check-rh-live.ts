@@ -21,8 +21,8 @@ assert(files.chain.includes("Fully live, out of beta"), "RH launch page must say
 assert(files.chain.includes('BetaNotice chain="arc"'), "only Arc keeps the beta notice");
 assert(!files.chain.includes("robinhood ? \"robinhood\""), "RH launch page must not mount a RH beta notice");
 assert(files.studio.includes("fully live and out of beta"), "RH studio must say launches are live");
-assert(files.banner.includes("Solana and Robinhood Chain are fully live"), "site banner must say RH is live");
-assert(files.banner.includes("Arc is still in beta"), "site banner must keep Arc in beta");
+assert(files.banner.includes("Robinhood live"), "site banner must say RH is live");
+assert(files.banner.includes("Arc beta"), "site banner must keep Arc in beta");
 assert(!files.banner.includes("Arc &amp; Robinhood Chain are in beta"), "banner must not group RH with Arc beta");
 assert(files.notice.includes("Solana and Robinhood Chain are live"), "Arc beta notice must say RH is live");
 assert(files.hero.includes("Robinhood"), "home hero must mention live Robinhood launches");

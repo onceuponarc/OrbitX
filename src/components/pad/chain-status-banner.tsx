@@ -1,9 +1,16 @@
 export function ChainStatusBanner() {
   return (
-    <div className="border-t border-white/5 bg-arc/[0.04] px-4 py-1.5 text-center text-[11px] text-white/60">
-      <span className="font-medium text-arc">Solana and Robinhood Chain are fully live</span> — launches work end
-      to end.{" "}
-      <span className="font-medium text-amber-300">Arc is still in beta</span> — the team is testing it this week.
+    <div className="flex items-center gap-2 overflow-x-auto border-t border-white/5 px-3 py-1.5 [scrollbar-width:none] lg:px-6">
+      <span className="size-1.5 shrink-0 rounded-full bg-buy" />
+      <span className="shrink-0 rounded-full bg-buy/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-buy">
+        Solana live
+      </span>
+      <span className="shrink-0 rounded-full bg-buy/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-buy">
+        Robinhood live
+      </span>
+      <span className="shrink-0 rounded-full bg-heat/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-heat">
+        Arc beta
+      </span>
     </div>
   );
 }

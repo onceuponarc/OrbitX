@@ -27,6 +27,7 @@
     "check:pump-metadata": "node --experimental-strip-types --no-warnings scripts/check-pump-metadata.ts",
     "check:in-app-trade": "node --experimental-strip-types --no-warnings scripts/check-in-app-trade.ts",
     "check:rh-live": "node --experimental-strip-types --no-warnings scripts/check-rh-live.ts",
+    "check:pad-ui": "node --experimental-strip-types --no-warnings scripts/check-pad-ui.ts",
     "test:forge": "forge test --root contracts -vv",
     "arc:watch": "node scripts/arc-watchdog.mjs",
     "sql:apply": "node scripts/apply-sql.mjs"

@@ -48,7 +48,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: "#07080c",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -57,7 +57,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} dark h-full antialiased`}>
-      <body className="flex min-h-full flex-col bg-black text-parchment">
+      <body className="flex min-h-full flex-col bg-background text-parchment">
         <AppShell>{children}</AppShell>
       </body>
     </html>

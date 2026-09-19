@@ -42,7 +42,7 @@ export function WalletDesk() {
   }
 
   return (
-    <div className="desk-3d space-y-4 rounded-3xl border border-white/10 p-5">
+    <div className="desk-3d pad-panel space-y-4 rounded-[1.4rem] p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/40">Deposit addresses</p>

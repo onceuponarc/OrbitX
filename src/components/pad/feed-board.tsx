@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 const EMPTY: Record<FeedTab, { title: string; body: string }> = {
   new: {
     title: "No launches yet",
-    body: "Be first. Launch a token on Arc — it is tradable the moment create lands.",
+    body: "Be first. Launch a token — it is tradable the moment create lands.",
   },
   trending: {
     title: "Nothing trending yet",
@@ -21,7 +21,7 @@ const EMPTY: Record<FeedTab, { title: string; body: string }> = {
   },
   curve: {
     title: "Nobody is graduating",
-    body: "Live tokens bond until their USDC target, then they graduate.",
+    body: "Live tokens bond until their target, then they graduate.",
   },
   bonded: {
     title: "Nothing graduated yet",
@@ -61,91 +61,85 @@ export function FeedBoard({ launches, king }: { launches: FeedLaunch[]; king?: F
   const empty = EMPTY[tab];
 
   return (
-    <section className="space-y-4 pad-fade">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <section className="space-y-3 pad-fade">
+      <div className="flex items-end justify-between gap-3">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/40">Board</p>
-          <h2 className="mt-1 text-3xl font-semibold tracking-tight">Tokens</h2>
+          <h2 className="mt-0.5 text-2xl font-semibold tracking-tight lg:text-3xl">Live tokens</h2>
         </div>
         {king ? (
           <Link
             href={launchHref(king).href}
-            className="flex items-center gap-2 self-start rounded-full border border-gold/25 bg-gold/[0.06] px-3 py-1.5 text-sm text-gold transition-colors hover:border-gold/45 lg:self-auto"
+            className="pad-chip hidden rounded-full px-3 py-1.5 text-sm lg:inline-flex"
           >
-            <span aria-hidden>👑</span>
             <span className="font-medium">${king.ticker}</span>
-            <span className="text-gold/70">{formatPct(king.changePct)}</span>
+            <span className="ml-2 opacity-70">{formatPct(king.changePct)}</span>
           </Link>
         ) : null}
       </div>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search ticker, name, handle"
-            className="sm:w-64"
-          />
-          <div className="flex max-w-full gap-1 overflow-x-auto rounded-full border border-white/10 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {FEED_TABS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setWatchOnly(false);
-                  setTab(item.id);
-                }}
-                className={cn(
-                  "shrink-0 rounded-full px-3 py-1.5 text-sm transition-colors",
-                  !watchOnly && tab === item.id ? "bg-white text-black" : "text-white/60 hover:text-white",
-                )}
-              >
-                {item.label}
-                <span className="ml-1 text-xs opacity-60">{filterFeed(listed, item.id).length}</span>
-              </button>
+      <Input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search ticker or name"
+        className="h-11 rounded-2xl border-white/10 bg-white/5 lg:h-9 lg:max-w-sm"
+      />
+      <div className="flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-white/8 bg-black/20 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {FEED_TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => {
+              setWatchOnly(false);
+              setTab(item.id);
+            }}
+            className={cn(
+              "shrink-0 rounded-xl px-3 py-2 text-sm transition-colors lg:py-1.5",
+              !watchOnly && tab === item.id ? "bg-gold text-ink font-semibold" : "text-white/55 hover:text-white",
+            )}
+          >
+            {item.label}
+            <span className="ml-1 text-xs opacity-60">{filterFeed(listed, item.id).length}</span>
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setWatchOnly(true)}
+          className={cn(
+            "shrink-0 rounded-xl px-3 py-2 text-sm transition-colors lg:py-1.5",
+            watchOnly ? "bg-gold text-ink font-semibold" : "text-white/55 hover:text-white",
+          )}
+        >
+          Watch {watch.length}
+        </button>
+      </div>
+      <div className="pad-panel overflow-hidden rounded-[1.35rem]">
+        <div className="hidden px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-white/30 lg:grid lg:grid-cols-[minmax(0,1.4fr)_90px_minmax(72px,0.7fr)_minmax(64px,0.55fr)_88px]">
+          <span>Token</span>
+          <span>Chart</span>
+          <span className="text-right">Price</span>
+          <span className="text-right">Volume</span>
+          <span className="text-right">Trade</span>
+        </div>
+        {shown.length === 0 ? (
+          <div className="space-y-4 p-4">
+            <EmptyPad
+              title={watchOnly ? "Nothing watched" : empty.title}
+              body={watchOnly ? "Tap Watch on a row. It stays on this device." : empty.body}
+            />
+            <div className="flex justify-center pb-2">
+              <Button asChild>
+                <Link href="/launch">Launch a token</Link>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="divide-y divide-white/6">
+            {shown.map((launch) => (
+              <TokenRow key={launch.slug} launch={launch} />
             ))}
-            <button
-              type="button"
-              onClick={() => setWatchOnly(true)}
-              className={cn(
-                "shrink-0 rounded-full px-3 py-1.5 text-sm transition-colors",
-                watchOnly ? "bg-white text-black" : "text-white/60 hover:text-white",
-              )}
-            >
-              Watch {watch.length}
-            </button>
           </div>
-        </div>
+        )}
       </div>
-      <p className="text-sm text-white/50 sm:text-left">
-        {watchOnly ? "Your watched Chapters. Stored on this device." : FEED_TABS.find((item) => item.id === tab)?.hint}
-      </p>
-      <div className="hidden px-3 font-mono text-[11px] uppercase tracking-[0.16em] text-white/30 sm:grid sm:grid-cols-[minmax(0,1.4fr)_90px_minmax(72px,0.7fr)_minmax(64px,0.55fr)_88px]">
-        <span>Token</span>
-        <span>Chart</span>
-        <span className="text-right">Price</span>
-        <span className="text-right">Volume</span>
-        <span className="text-right">Trade</span>
-      </div>
-      {shown.length === 0 ? (
-        <div className="space-y-4">
-          <EmptyPad
-            title={watchOnly ? "Nothing watched" : empty.title}
-            body={watchOnly ? "Tap Watch on a row. It stays on this device." : empty.body}
-          />
-          <div className="flex justify-center">
-            <Button asChild>
-              <Link href="/launch">Launch a token</Link>
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="relative z-10 space-y-1">
-          {shown.map((launch) => (
-            <TokenRow key={launch.slug} launch={launch} />
-          ))}
-        </div>
-      )}
     </section>
   );
 }

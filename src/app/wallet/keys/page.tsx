@@ -8,9 +8,9 @@ export const metadata = { title: "Export keys" };
 export default function WalletKeysPage() {
   return (
     <div className="space-y-6 pad-fade">
-      <section className="rounded-3xl border border-amber-300/20 bg-amber-300/5 p-6 sm:p-8">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-amber-200/70">Export keys</p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight">Private key and recovery phrase</h1>
+      <section className="pad-panel rounded-[1.4rem] border-heat/25 bg-heat/5 p-5 lg:p-8">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-heat">Export keys</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight lg:text-4xl">Private key and recovery phrase</h1>
         <p className="mt-3 max-w-2xl text-white/60">
           This page can reveal secrets. Do not screenshot it. Do not share it. Export both the private key and the
           recovery phrase — some wallets only accept a phrase. Use this only to back up or import a desk wallet.
