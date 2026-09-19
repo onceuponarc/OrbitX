@@ -44,11 +44,16 @@ export async function pumpCollectFeeTx(publicKey: string) {
       action: "collectCreatorFee",
       priorityFee: 0.0002,
     }),
+    signal: AbortSignal.timeout(8_000),
   });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || "Could not build the fee-claim tx.");
   }
   const buf = Buffer.from(await res.arrayBuffer());
+  const asText = buf.toString("utf8").trim();
+  if (asText.startsWith("{") || asText.startsWith("[")) {
+    throw new Error(asText.slice(0, 280) || "Could not build the fee-claim tx.");
+  }
   return buf.toString("base64");
 }

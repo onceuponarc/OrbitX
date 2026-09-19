@@ -10,6 +10,8 @@ const files = {
   curveTrade: readFileSync(new URL("../src/components/pad/curve-trade.tsx", import.meta.url), "utf8"),
   evmTrade: readFileSync(new URL("../src/components/token/evm-trade.tsx", import.meta.url), "utf8"),
   claimDesk: readFileSync(new URL("../src/components/claimfee/claim-fee-desk.tsx", import.meta.url), "utf8"),
+  claimButton: readFileSync(new URL("../src/components/token/claim-fees-button.tsx", import.meta.url), "utf8"),
+  claimHelper: readFileSync(new URL("../src/lib/http/claim-creator-fees.ts", import.meta.url), "utf8"),
   linkLp: readFileSync(new URL("../src/components/story/link-lp.tsx", import.meta.url), "utf8"),
   providers: readFileSync(new URL("../src/components/providers.tsx", import.meta.url), "utf8"),
   tradeSwap: readFileSync(new URL("../src/app/api/trade/swap/route.ts", import.meta.url), "utf8"),
@@ -26,7 +28,9 @@ assert(files.tradePanel.includes('/api/trade/swap'), "token trades must POST the
 assert(files.tradePanel.includes("in-app Solana desk"), "token trades must say desk wallet");
 assert(files.swapPanel.includes("/api/jupiter/execute"), "jupiter panel must execute on the desk");
 assert(files.curveTrade.includes("/api/stories/") && files.curveTrade.includes("/trade"), "curve trades must POST the desk trade route");
-assert(files.claimDesk.includes("/api/solana/claim"), "fee claims must hit the desk claim route");
+assert(files.claimDesk.includes("postClaimCreatorFees") || files.claimDesk.includes("/api/solana/claim"), "fee claims must hit the desk claim route");
+assert(files.claimHelper.includes("/api/solana/claim"), "claim helper must POST the desk claim route");
+assert(files.claimButton.includes("postClaimCreatorFees"), "story claim button must use the desk helper");
 assert(!files.providers.includes("SolanaWalletProvider"), "app shell must not wrap Phantom");
 assert(files.tradeSwap.includes("deskSolanaKey"), "desk swap must sign with the in-app key");
 assert(files.jupiterExec.includes("deskSolanaKey"), "jupiter execute must sign with the in-app key");

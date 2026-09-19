@@ -25,6 +25,7 @@
     "check:vanity-mint": "node --experimental-strip-types --no-warnings scripts/check-vanity-mint.ts",
     "check:pump-metadata": "node --experimental-strip-types --no-warnings scripts/check-pump-metadata.ts",
     "check:in-app-trade": "node --experimental-strip-types --no-warnings scripts/check-in-app-trade.ts",
+    "check:claim-fees": "node --experimental-strip-types --no-warnings scripts/check-claim-fees.ts",
     "test:forge": "forge test --root contracts -vv",
     "arc:watch": "node scripts/arc-watchdog.mjs",
     "sql:apply": "node scripts/apply-sql.mjs"

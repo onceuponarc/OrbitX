@@ -1,31 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { readApiJson } from "@/lib/http/read-json";
+import { postClaimCreatorFees } from "@/lib/http/claim-creator-fees";
 import { XMark } from "@/components/x-mark";
 
 export function ClaimFeeDesk({ signedIn = false }: { signedIn?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const inflight = useRef(false);
 
   async function claim() {
     if (!signedIn) {
       setError("Sign in with X first. Claims use your in-app Solana desk.");
       return;
     }
+    if (inflight.current) return;
+    inflight.current = true;
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/solana/claim", { method: "POST" });
-      const body = await readApiJson<{ error?: string; signature?: string; explorer?: string }>(res);
-      if (!res.ok || !body.signature) throw new Error(body.error ?? "Could not claim creator fees.");
-      setMessage(body.explorer ?? body.signature);
+      const body = await postClaimCreatorFees();
+      setMessage(body.explorer);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not claim creator fees.");
+      const text =
+        cause instanceof DOMException && cause.name === "TimeoutError"
+          ? "Claim timed out. Fund the desk and retry."
+          : cause instanceof Error
+            ? cause.message
+            : "Could not claim creator fees.";
+      setError(text);
     } finally {
+      inflight.current = false;
       setBusy(false);
     }
   }
