@@ -34,8 +34,7 @@ export function TabBar() {
               href={tab.href}
               className={cn(
                 "flex flex-col items-center justify-end gap-0.5 pb-1.5 text-[10px] font-semibold tracking-wide",
-                on && !launch ? "text-gold" : "text-white/40",
-                launch && "text-ink",
+                on || launch ? "text-gold" : "text-white/40",
               )}
             >
               <span

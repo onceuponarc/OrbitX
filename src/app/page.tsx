@@ -23,27 +23,25 @@ export default async function HomePage() {
   return (
     <div className="space-y-5 lg:space-y-8">
       <LiveRefresh intervalMs={2000} />
+      <OrbitHero
+        liveCount={liveCount}
+        bondedCount={bondedCount}
+        volumeUi={volume}
+        handle={profile?.handle ?? null}
+      />
+      <div className="grid grid-cols-3 gap-2 lg:hidden">
+        <HomeLink href="/cards" label="Cards" />
+        <HomeLink href="/drop" label="Drop" />
+        <HomeLink href="/params" label="$ORBITX" />
+      </div>
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
-        <div className="space-y-5 lg:space-y-6">
-          <OrbitHero
-            liveCount={liveCount}
-            bondedCount={bondedCount}
-            volumeUi={volume}
-            handle={profile?.handle ?? null}
-          />
-          <div className="grid grid-cols-3 gap-2 lg:hidden">
-            <HomeLink href="/cards" label="Cards" />
-            <HomeLink href="/drop" label="Drop" />
-            <HomeLink href="/params" label="$ORBITX" />
-          </div>
-          <FeedBoard launches={launches} king={totd} />
-        </div>
-        <aside className="mt-5 space-y-4 lg:sticky lg:top-24 lg:mt-0">
+        <FeedBoard launches={launches} king={totd} />
+        <aside className="mt-5 hidden space-y-4 lg:sticky lg:top-24 lg:mt-0 lg:block">
           {totd ? <KingBanner launch={totd} /> : null}
           {cards.length ? <CardRail cards={cards.slice(0, 8)} /> : null}
           <Link
             href="/whitepaper"
-            className="pad-panel hidden rounded-2xl px-5 py-4 text-sm text-white/55 transition-colors hover:text-white lg:block"
+            className="pad-panel rounded-2xl px-5 py-4 text-sm text-white/55 transition-colors hover:text-white"
           >
             How launches, Press Cards, and $ORBITX work →
           </Link>
