@@ -1,5 +1,31 @@
 import type { PrintableChain } from "@onceupon/config/solana";
+import {
+  createAutomationConfig,
+  isActionKind,
+  isFeeDestinationId,
+  isRuleStatus,
+  isTriggerKind,
+  type ActionKind,
+  type AutomationConfig,
+  type AutomationRule,
+  type CompareOp,
+  type Condition,
+  type Milestone,
+  type RouteShare,
+  type RuleAction,
+} from "@/lib/custom-launch/automation";
 import { createFeeConfig, FEE_DESTINATION_IDS, type FeeConfig } from "@/lib/custom-launch/fees";
+import {
+  createAdvancedMarketSettings,
+  createMarketsConfig,
+  createPoolConfig,
+  isLiquiditySourceId,
+  isPrimaryQuoteId,
+  isQuoteAssetId,
+  type MarketsConfig,
+  type PoolConfig,
+  type SecondaryMarket,
+} from "@/lib/custom-launch/markets";
 import {
   createLaunchModeState,
   isLaunchStrategyId,
@@ -11,7 +37,7 @@ import { createSupplyPlan, SUPPLY_BUCKETS, type SupplyPlan } from "@/lib/custom-
 import { type TokenConfig, type TokenLink } from "@/lib/custom-launch/token";
 import { createCustomLaunchDraft, type CustomLaunchDraft } from "@/lib/custom-launch/schema";
 
-export const CUSTOM_LAUNCH_STORAGE_PREFIX = "orbitx.custom-launch.v3.";
+export const CUSTOM_LAUNCH_STORAGE_PREFIX = "orbitx.custom-launch.v4.";
 
 export function customLaunchStorageKey(chain: PrintableChain) {
   return `${CUSTOM_LAUNCH_STORAGE_PREFIX}${chain}`;
@@ -23,23 +49,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function parseCustomLaunchDraft(raw: unknown, chain: PrintableChain): CustomLaunchDraft | null {
   if (!isRecord(raw) || raw.chain !== chain) return null;
-  if (raw.version !== 1 && raw.version !== 2 && raw.version !== 3) return null;
+  if (raw.version !== 1 && raw.version !== 2 && raw.version !== 3 && raw.version !== 4) return null;
   const base = createCustomLaunchDraft(chain);
   if (!isRecord(raw.mode) || !isRecord(raw.token) || !isRecord(raw.economics)) return null;
-  if (!isRecord(raw.primary) || !isRecord(raw.secondary) || !isRecord(raw.automation)) return null;
   const mode = parseLaunchMode(raw.mode);
 
   return {
     ...base,
-    version: 3,
+    version: 4,
     mode,
     token: parseTokenConfig(raw.token, base.token),
     supply: parseSupplyPlan(raw.supply),
     fees: parseFeeConfig(raw.fees, mode),
     economics: { ...base.economics, ...pick(raw.economics, base.economics) },
-    primary: { ...base.primary, ...pick(raw.primary, base.primary) },
-    secondary: { ...base.secondary, ...pick(raw.secondary, base.secondary) },
-    automation: { ...base.automation, ...pick(raw.automation, base.automation) },
+    markets: parseMarketsConfig(raw.markets),
+    automation: parseAutomationConfig(raw.automation),
     reviewedAt: typeof raw.reviewedAt === "string" || raw.reviewedAt === null ? raw.reviewedAt : null,
   };
 }
@@ -85,6 +109,167 @@ function parseFeeConfig(raw: unknown, mode: CustomLaunchModeState): FeeConfig {
     tradingFeeBps:
       typeof raw.tradingFeeBps === "number" ? Math.max(0, Math.min(500, raw.tradingFeeBps)) : base.tradingFeeBps,
     shares,
+  };
+}
+
+function parsePoolConfig(raw: unknown, fallbackQuote: "sol" | "usdc" | "btc" | "eth" | "other" = "sol"): PoolConfig {
+  const base = createPoolConfig(fallbackQuote);
+  if (!isRecord(raw)) return base;
+  return {
+    tokenAllocation: typeof raw.tokenAllocation === "string" ? raw.tokenAllocation : base.tokenAllocation,
+    pairedAmount: typeof raw.pairedAmount === "string" ? raw.pairedAmount : base.pairedAmount,
+  };
+}
+
+function parseMarketsConfig(raw: unknown): MarketsConfig {
+  const base = createMarketsConfig();
+  if (!isRecord(raw)) return base;
+  const primaryRaw = isRecord(raw.primary) ? raw.primary : {};
+  const quote = isPrimaryQuoteId(primaryRaw.quote) ? primaryRaw.quote : base.primary.quote;
+  const advancedRaw = isRecord(primaryRaw.advanced) ? primaryRaw.advanced : {};
+  const advancedBase = createAdvancedMarketSettings();
+  const secondary = Array.isArray(raw.secondary)
+    ? raw.secondary.flatMap((row): SecondaryMarket[] => {
+        if (!isRecord(row) || !isQuoteAssetId(row.quote)) return [];
+        return [
+          {
+            id: typeof row.id === "string" ? row.id : `mkt-${row.quote}`,
+            quote: row.quote,
+            customTicker: typeof row.customTicker === "string" ? row.customTicker : "",
+            pool: parsePoolConfig(row.pool, row.quote),
+          },
+        ];
+      })
+    : [];
+  const accessRaw = isRecord(raw.access) ? raw.access : {};
+  return {
+    primary: {
+      quote,
+      pool: parsePoolConfig(primaryRaw.pool, quote),
+      liquidity: {
+        source: isRecord(primaryRaw.liquidity) && isLiquiditySourceId(primaryRaw.liquidity.source)
+          ? primaryRaw.liquidity.source
+          : base.primary.liquidity.source,
+      },
+      advanced: {
+        slippageBps:
+          typeof advancedRaw.slippageBps === "number"
+            ? Math.max(0, Math.min(5000, advancedRaw.slippageBps))
+            : advancedBase.slippageBps,
+        priceInit: advancedRaw.priceInit === "manual" ? "manual" : "auto",
+        lockEnabled: typeof advancedRaw.lockEnabled === "boolean" ? advancedRaw.lockEnabled : advancedBase.lockEnabled,
+        lockDays:
+          typeof advancedRaw.lockDays === "number"
+            ? Math.max(0, Math.min(1825, advancedRaw.lockDays))
+            : advancedBase.lockDays,
+        routingPreference:
+          advancedRaw.routingPreference === "best_price" || advancedRaw.routingPreference === "manual"
+            ? advancedRaw.routingPreference
+            : "primary_first",
+        activation:
+          advancedRaw.activation === "manual" || advancedRaw.activation === "on_target"
+            ? advancedRaw.activation
+            : "immediate",
+        secondaryActivation:
+          advancedRaw.secondaryActivation === "after_primary" || advancedRaw.secondaryActivation === "on_liquidity"
+            ? advancedRaw.secondaryActivation
+            : "manual",
+      },
+    },
+    secondary,
+    access: {
+      primaryEnabled: typeof accessRaw.primaryEnabled === "boolean" ? accessRaw.primaryEnabled : true,
+      secondaryEnabled: typeof accessRaw.secondaryEnabled === "boolean" ? accessRaw.secondaryEnabled : true,
+      laterConnections: typeof accessRaw.laterConnections === "boolean" ? accessRaw.laterConnections : true,
+    },
+  };
+}
+
+function parseAutomationConfig(raw: unknown): AutomationConfig {
+  const base = createAutomationConfig();
+  if (!isRecord(raw)) return base;
+  const rules = Array.isArray(raw.rules)
+    ? raw.rules.flatMap((row): AutomationRule[] => {
+        if (!isRecord(row) || typeof row.name !== "string" || !isTriggerKind(row.trigger)) return [];
+        const conditions = Array.isArray(row.conditions)
+          ? row.conditions.flatMap((item): Condition[] => {
+              if (!isRecord(item) || !isTriggerKind(item.metric)) return [];
+              const op = ["gte", "lte", "gt", "lt", "eq"].includes(String(item.op)) ? (item.op as CompareOp) : "gte";
+              return [
+                {
+                  id: typeof item.id === "string" ? item.id : `c-${item.metric}`,
+                  metric: item.metric,
+                  op,
+                  value: typeof item.value === "string" ? item.value : "",
+                },
+              ];
+            })
+          : [];
+        const actions = Array.isArray(row.actions)
+          ? row.actions.flatMap((item): RuleAction[] => {
+              if (!isRecord(item) || !isActionKind(item.kind)) return [];
+              return [
+                {
+                  id: typeof item.id === "string" ? item.id : `a-${item.kind}`,
+                  kind: item.kind,
+                  note: typeof item.note === "string" ? item.note : "",
+                },
+              ];
+            })
+          : [];
+        const routes = Array.isArray(row.routes)
+          ? row.routes.flatMap((item): RouteShare[] => {
+              if (!isRecord(item) || !isFeeDestinationId(item.destination)) return [];
+              return [
+                {
+                  id: typeof item.id === "string" ? item.id : item.destination,
+                  destination: item.destination,
+                  bps: Number.isFinite(Number(item.bps)) ? Math.max(0, Math.min(10_000, Number(item.bps))) : 0,
+                },
+              ];
+            })
+          : [];
+        return [
+          {
+            id: typeof row.id === "string" ? row.id : `rule-${row.trigger}`,
+            name: row.name,
+            status: isRuleStatus(row.status) ? row.status : "draft",
+            trigger: row.trigger,
+            conditions,
+            join: row.join === "or" ? "or" : "and",
+            actions,
+            routes,
+            cooldown: typeof row.cooldown === "string" ? row.cooldown : "1h",
+            maxExecution: typeof row.maxExecution === "string" ? row.maxExecution : "1000",
+            lastExecution: typeof row.lastExecution === "string" ? row.lastExecution : null,
+            nextExecution: typeof row.nextExecution === "string" ? row.nextExecution : "Not scheduled — preview only",
+          },
+        ];
+      })
+    : [];
+  const milestones = Array.isArray(raw.milestones)
+    ? raw.milestones.flatMap((row): Milestone[] => {
+        if (!isRecord(row) || typeof row.marketCap !== "string" || !isActionKind(row.action)) return [];
+        return [
+          {
+            id: typeof row.id === "string" ? row.id : `ms-${row.marketCap}`,
+            marketCap: row.marketCap,
+            action: row.action as ActionKind,
+          },
+        ];
+      })
+    : base.milestones;
+  const sim = isRecord(raw.simulation) ? raw.simulation : {};
+  return {
+    rules,
+    milestones,
+    simulation: {
+      feeBalance: typeof sim.feeBalance === "string" ? sim.feeBalance : base.simulation.feeBalance,
+      marketCap: typeof sim.marketCap === "string" ? sim.marketCap : base.simulation.marketCap,
+      holders: typeof sim.holders === "string" ? sim.holders : base.simulation.holders,
+      volume: typeof sim.volume === "string" ? sim.volume : base.simulation.volume,
+      liquidity: typeof sim.liquidity === "string" ? sim.liquidity : base.simulation.liquidity,
+    },
   };
 }
 

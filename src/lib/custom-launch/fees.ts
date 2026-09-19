@@ -1,9 +1,9 @@
-import { ORBITX_PROTOCOL } from "@/lib/custom-launch/protocol";
 import {
   selectedStrategyIds,
   type CustomLaunchModeState,
   type LaunchStrategyId,
-} from "@/lib/custom-launch/modes";
+} from "./modes.ts";
+import { ORBITX_PROTOCOL } from "./protocol.ts";
 
 export const FEE_DESTINATION_IDS = [
   "orbitx",

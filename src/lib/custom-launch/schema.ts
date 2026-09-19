@@ -1,5 +1,12 @@
 import type { PrintableChain } from "@onceupon/config/solana";
+import { automationComplete, createAutomationConfig, type AutomationConfig } from "@/lib/custom-launch/automation";
 import { createFeeConfig, feeConfigComplete, type FeeConfig } from "@/lib/custom-launch/fees";
+import {
+  createMarketsConfig,
+  primaryMarketComplete,
+  secondaryMarketsComplete,
+  type MarketsConfig,
+} from "@/lib/custom-launch/markets";
 import { createLaunchModeState, type CustomLaunchModeState } from "@/lib/custom-launch/modes";
 import { createSupplyPlan, supplyPlanBalanced, type SupplyPlan } from "@/lib/custom-launch/supply";
 import { createTokenConfig, tokenConfigComplete, type TokenConfig } from "@/lib/custom-launch/token";
@@ -17,8 +24,6 @@ export const CUSTOM_LAUNCH_STEPS = [
 
 export type CustomLaunchStepId = (typeof CUSTOM_LAUNCH_STEPS)[number]["id"];
 
-export type PriceDiscovery = "curve" | "fixed" | "dutch";
-export type FeeSweepCadence = "off" | "daily" | "weekly";
 export type QuotePreference = "native" | "usdc";
 
 export type {
@@ -84,7 +89,7 @@ export const CUSTOM_CHAIN_META: Record<PrintableChain, CustomChainMeta> = {
 };
 
 export type CustomLaunchDraft = {
-  version: 3;
+  version: 4;
   chain: PrintableChain;
   mode: CustomLaunchModeState;
   token: TokenConfig;
@@ -96,37 +101,15 @@ export type CustomLaunchDraft = {
     maxTxBps: number;
     transferRestricted: boolean;
   };
-  primary: {
-    discovery: PriceDiscovery;
-    raiseTarget: string;
-    softCap: string;
-    hardCap: string;
-    durationHours: number;
-    publicBps: number;
-    communityBps: number;
-    creatorBps: number;
-  };
-  secondary: {
-    listOnDex: boolean;
-    quotePair: string;
-    seedLiquidity: string;
-    lpLockDays: number;
-    feeTierBps: number;
-  };
-  automation: {
-    autoLiquidity: boolean;
-    feeSweep: FeeSweepCadence;
-    graduateOnTarget: boolean;
-    buyback: boolean;
-    pauseGuard: boolean;
-  };
+  markets: MarketsConfig;
+  automation: AutomationConfig;
   reviewedAt: string | null;
 };
 
 export function createCustomLaunchDraft(chain: PrintableChain): CustomLaunchDraft {
   const meta = CUSTOM_CHAIN_META[chain];
   return {
-    version: 3,
+    version: 4,
     chain,
     mode: createLaunchModeState(),
     token: createTokenConfig(meta.decimals),
@@ -138,36 +121,10 @@ export function createCustomLaunchDraft(chain: PrintableChain): CustomLaunchDraf
       maxTxBps: 100,
       transferRestricted: false,
     },
-    primary: {
-      discovery: "curve",
-      raiseTarget: "",
-      softCap: "",
-      hardCap: "",
-      durationHours: 72,
-      publicBps: 7000,
-      communityBps: 2000,
-      creatorBps: 1000,
-    },
-    secondary: {
-      listOnDex: true,
-      quotePair: `TOKEN/${meta.quote}`,
-      seedLiquidity: "",
-      lpLockDays: 90,
-      feeTierBps: 30,
-    },
-    automation: {
-      autoLiquidity: true,
-      feeSweep: "weekly",
-      graduateOnTarget: true,
-      buyback: false,
-      pauseGuard: true,
-    },
+    markets: createMarketsConfig(),
+    automation: createAutomationConfig(),
     reviewedAt: null,
   };
-}
-
-export function allocationTotalBps(draft: CustomLaunchDraft) {
-  return draft.primary.publicBps + draft.primary.communityBps + draft.primary.creatorBps;
 }
 
 export type StepStatus = "complete" | "incomplete" | "ready" | "blocked";
@@ -181,16 +138,11 @@ export function stepStatus(draft: CustomLaunchDraft, id: CustomLaunchStepId): St
     case "economics":
       return feeConfigComplete(draft.mode, draft.fees) ? "complete" : "incomplete";
     case "primary":
-      return draft.primary.raiseTarget.trim() && allocationTotalBps(draft) === 10_000
-        ? "complete"
-        : "incomplete";
+      return primaryMarketComplete(draft.markets, draft.token.supply) ? "complete" : "incomplete";
     case "secondary":
-      if (!draft.secondary.listOnDex) return "complete";
-      return draft.secondary.quotePair.trim() && draft.secondary.seedLiquidity.trim()
-        ? "complete"
-        : "incomplete";
+      return secondaryMarketsComplete(draft.markets) ? "complete" : "incomplete";
     case "automation":
-      return "complete";
+      return automationComplete(draft.automation) ? "complete" : "incomplete";
     case "review":
       return requiredStepsComplete(draft) ? "complete" : "incomplete";
     case "deploy":

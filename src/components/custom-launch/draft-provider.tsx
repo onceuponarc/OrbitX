@@ -43,6 +43,7 @@ type CustomLaunchContextValue = {
   setStep: (id: CustomLaunchStepId) => void;
   goAdjacent: (delta: -1 | 1) => void;
   patch: <K extends PatchSection>(key: K, next: Partial<CustomLaunchDraft[K]>) => void;
+  update: (fn: (draft: CustomLaunchDraft) => CustomLaunchDraft) => void;
   reset: () => void;
   markReviewed: () => void;
   configured: number;
@@ -79,6 +80,11 @@ export function CustomLaunchDraftProvider({
     [chain],
   );
 
+  const update = useCallback((fn: (draft: CustomLaunchDraft) => CustomLaunchDraft) => {
+    const current = getCustomLaunchDraftSnapshot(chain);
+    setCustomLaunchDraft(chain, { ...fn(current), reviewedAt: null });
+  }, [chain]);
+
   const reset = useCallback(() => {
     resetCustomLaunchDraft(chain);
     setStep("mode");
@@ -103,6 +109,7 @@ export function CustomLaunchDraftProvider({
       setStep,
       goAdjacent,
       patch,
+      update,
       reset,
       markReviewed,
       configured: configuredCount(draft),
@@ -110,7 +117,7 @@ export function CustomLaunchDraftProvider({
       ready: requiredStepsComplete(draft),
       missing: incompleteSteps(draft),
     };
-  }, [chain, draft, goAdjacent, markReviewed, patch, reset, step]);
+  }, [chain, draft, goAdjacent, markReviewed, patch, reset, step, update]);
 
   return <CustomLaunchContext.Provider value={value}>{children}</CustomLaunchContext.Provider>;
 }

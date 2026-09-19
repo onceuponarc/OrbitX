@@ -1,123 +1,132 @@
 "use client";
 
-import { ChoiceGrid } from "@/components/custom-launch/choice-grid";
-import { Field } from "@/components/custom-launch/field";
-import { ControlPanel, MetricTile } from "@/components/custom-launch/panel";
+import { AdvancedMarket } from "@/components/custom-launch/advanced-market";
+import { LiquiditySource } from "@/components/custom-launch/liquidity-source";
+import { MarketAccess } from "@/components/custom-launch/market-access";
+import { MarketCard } from "@/components/custom-launch/market-card";
+import { PoolDesk } from "@/components/custom-launch/pool-desk";
+import { QuoteSelect } from "@/components/custom-launch/quote-select";
 import { useCustomLaunch } from "@/components/custom-launch/draft-provider";
-import { allocationTotalBps, formatBps, formatHours } from "@/lib/custom-launch/schema";
-import { Input } from "@/components/ui/input";
+import {
+  createPoolConfig,
+  estimatePool,
+  LIQUIDITY_SOURCE_META,
+  primaryMarketComplete,
+} from "@/lib/custom-launch/markets";
 
 export function PrimaryMarketStep() {
-  const { draft, patch, meta } = useCustomLaunch();
-  const total = allocationTotalBps(draft);
-  const balanced = total === 10_000;
+  const { draft, update } = useCustomLaunch();
+  const { primary, access } = draft.markets;
+  const estimate = estimatePool(primary.pool, primary.quote, draft.token.supply);
+  const complete = primaryMarketComplete(draft.markets, draft.token.supply);
 
   return (
-    <ControlPanel
-      eyebrow="04 · Primary Market"
-      title="Opening book"
-      body="The first market is where supply is sold, not where it later trades. Set discovery, raise, duration, and who is allocated before any secondary venue is named."
-    >
-      <div className="grid gap-3 sm:grid-cols-3">
-        <MetricTile label="Raise target" value={draft.primary.raiseTarget ? `${draft.primary.raiseTarget} ${meta.quote}` : "—"} />
-        <MetricTile label="Window" value={formatHours(draft.primary.durationHours)} />
-        <MetricTile
-          label="Allocation"
-          value={formatBps(total)}
-          hint={balanced ? "Sums to 100%" : "Must sum to 100%"}
-          tone={balanced ? "live" : "warn"}
-        />
+    <section className="space-y-4">
+      <div className="ox-console rounded-[1.4rem] p-5 lg:p-6">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-gold/80">04 · Primary Market</p>
+        <h2 className="mt-1 text-2xl font-semibold tracking-tight">Open the first book</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-white/55">
+          Choose the required primary market and size the intended pool. These are local estimates —
+          no liquidity is posted and no pair is created.
+        </p>
+        {!complete ? (
+          <p className="mt-3 text-sm text-heat">
+            {!access.primaryEnabled
+              ? "Enable the primary market to continue."
+              : "Select a primary market and enter a valid liquidity amount."}
+          </p>
+        ) : null}
       </div>
-      <div className="mt-5">
-        <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.14em] text-white/45">Price discovery</p>
-        <ChoiceGrid
-          columns={3}
-          value={draft.primary.discovery}
-          onChange={(discovery) => patch("primary", { discovery })}
-          options={[
-            { id: "curve", title: "Curve", body: "Continuous book" },
-            { id: "fixed", title: "Fixed", body: "Single clearing price" },
-            { id: "dutch", title: "Dutch", body: "Descending window" },
-          ]}
-        />
-      </div>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label={`Raise target (${meta.quote})`}>
-          <Input
-            value={draft.primary.raiseTarget}
-            onChange={(event) => patch("primary", { raiseTarget: event.target.value })}
-            placeholder="0"
-          />
-        </Field>
-        <Field label={`Soft cap (${meta.quote})`}>
-          <Input
-            value={draft.primary.softCap}
-            onChange={(event) => patch("primary", { softCap: event.target.value })}
-            placeholder="Optional"
-          />
-        </Field>
-        <Field label={`Hard cap (${meta.quote})`}>
-          <Input
-            value={draft.primary.hardCap}
-            onChange={(event) => patch("primary", { hardCap: event.target.value })}
-            placeholder="Optional"
-          />
-        </Field>
-        <Field label="Duration (hours)">
-          <Input
-            type="number"
-            min={1}
-            max={720}
-            value={draft.primary.durationHours}
-            onChange={(event) =>
-              patch("primary", { durationHours: Math.max(1, Math.min(720, Number(event.target.value) || 1)) })
-            }
-          />
-        </Field>
-      </div>
-      <div className="mt-5 grid gap-4 sm:grid-cols-3">
-        <AllocField
-          label="Public"
-          value={draft.primary.publicBps}
-          onChange={(publicBps) => patch("primary", { publicBps })}
-        />
-        <AllocField
-          label="Community"
-          value={draft.primary.communityBps}
-          onChange={(communityBps) => patch("primary", { communityBps })}
-        />
-        <AllocField
-          label="Creator"
-          value={draft.primary.creatorBps}
-          onChange={(creatorBps) => patch("primary", { creatorBps })}
-        />
-      </div>
-    </ControlPanel>
-  );
-}
 
-function AllocField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (next: number) => void;
-}) {
-  return (
-    <Field label={`${label} allocation`} hint={formatBps(value)}>
-      <Input
-        type="number"
-        min={0}
-        max={100}
-        step={1}
-        value={(value / 100).toString()}
-        onChange={(event) => {
-          const pct = Number(event.target.value);
-          onChange(Number.isFinite(pct) ? Math.round(Math.max(0, Math.min(100, pct)) * 100) : 0);
-        }}
+      <div className="ox-console rounded-[1.35rem] p-5">
+        <QuoteSelect
+          value={primary.quote}
+          symbol={draft.token.symbol}
+          onChange={(quote) =>
+            update((current) => ({
+              ...current,
+              markets: {
+                ...current.markets,
+                primary: {
+                  ...current.markets.primary,
+                  quote,
+                  pool:
+                    current.markets.primary.quote === quote
+                      ? current.markets.primary.pool
+                      : createPoolConfig(quote),
+                },
+                secondary: current.markets.secondary.filter((row) => row.quote !== quote),
+              },
+            }))
+          }
+        />
+      </div>
+
+      <div className="ox-console rounded-[1.35rem] p-5">
+        <PoolDesk
+          quote={primary.quote}
+          pool={primary.pool}
+          estimate={estimate}
+          tokenLabel={draft.token.symbol ? `$${draft.token.symbol}` : "Token units"}
+          onChange={(pool) =>
+            update((current) => ({
+              ...current,
+              markets: {
+                ...current.markets,
+                primary: { ...current.markets.primary, pool: { ...current.markets.primary.pool, ...pool } },
+              },
+            }))
+          }
+        />
+      </div>
+
+      <div className="ox-console rounded-[1.35rem] p-5">
+        <LiquiditySource
+          value={primary.liquidity.source}
+          onChange={(source) =>
+            update((current) => ({
+              ...current,
+              markets: {
+                ...current.markets,
+                primary: { ...current.markets.primary, liquidity: { source } },
+              },
+            }))
+          }
+        />
+      </div>
+
+      <MarketCard
+        symbol={draft.token.symbol}
+        quote={primary.quote}
+        role="primary"
+        estimate={estimate}
+        typeLabel={LIQUIDITY_SOURCE_META[primary.liquidity.source].title}
       />
-    </Field>
+
+      <div className="ox-console rounded-[1.35rem] p-5">
+        <MarketAccess
+          value={access}
+          onChange={(next) =>
+            update((current) => ({
+              ...current,
+              markets: { ...current.markets, access: { ...current.markets.access, ...next } },
+            }))
+          }
+        />
+      </div>
+
+      <AdvancedMarket
+        value={primary.advanced}
+        onChange={(next) =>
+          update((current) => ({
+            ...current,
+            markets: {
+              ...current.markets,
+              primary: { ...current.markets.primary, advanced: { ...current.markets.primary.advanced, ...next } },
+            },
+          }))
+        }
+      />
+    </section>
   );
 }

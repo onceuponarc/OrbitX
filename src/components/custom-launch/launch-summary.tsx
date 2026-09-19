@@ -4,6 +4,13 @@ import { useState } from "react";
 import { useCustomLaunch } from "@/components/custom-launch/draft-provider";
 import { ORBITX_PROTOCOL } from "@/lib/custom-launch/protocol";
 import { resolvedFeeAllocations } from "@/lib/custom-launch/fees";
+import {
+  configuredMarketCount,
+  formatEstimatePrice,
+  formatEstimateUsd,
+  pairLabel,
+  primaryEstimate,
+} from "@/lib/custom-launch/markets";
 import { formatBps, launchModeTitle } from "@/lib/custom-launch/schema";
 import { formatSupply } from "@/lib/custom-launch/token";
 import { cn } from "@/lib/utils";
@@ -13,11 +20,12 @@ export function LaunchSummary({ variant = "desktop" }: { variant?: "desktop" | "
   const [open, setOpen] = useState(false);
   const allocations = resolvedFeeAllocations(draft.mode, draft.fees);
   const symbol = draft.token.symbol.trim().toUpperCase();
-  const pair = draft.secondary.seedLiquidity ? draft.secondary.quotePair : "Not configured yet";
+  const estimate = primaryEstimate(draft.markets, draft.token.supply);
+  const secondaryCount = draft.markets.secondary.length;
   const automation =
-    draft.automation.buyback || draft.automation.feeSweep !== "weekly"
-      ? `sweep ${draft.automation.feeSweep}`
-      : "Not configured yet";
+    draft.automation.rules.length === 0
+      ? "Not configured yet"
+      : `${draft.automation.rules.length} rule${draft.automation.rules.length === 1 ? "" : "s"}`;
 
   const rows = [
     ["Token", symbol ? `$${symbol}` : "—"],
@@ -26,7 +34,11 @@ export function LaunchSummary({ variant = "desktop" }: { variant?: "desktop" | "
     ["OrbitX allocation", formatBps(ORBITX_PROTOCOL.allocationBps)],
     ["Selected mode", launchModeTitle(draft.mode)],
     ["Fee destinations", String(allocations.length)],
-    ["Primary pair", pair],
+    ["Primary market", pairLabel(draft.token.symbol, draft.markets.primary.quote)],
+    ["Starting liquidity", formatEstimateUsd(estimate.liquidityUsd)],
+    ["Initial price", formatEstimatePrice(estimate.initialPrice)],
+    ["Secondary markets", String(secondaryCount)],
+    ["Total configured markets", String(configuredMarketCount(draft.markets, draft.token.supply))],
     ["Automation", automation],
   ];
 
@@ -41,7 +53,7 @@ export function LaunchSummary({ variant = "desktop" }: { variant?: "desktop" | "
           <span>
             <span className="block font-mono text-[10px] uppercase tracking-[0.16em] text-gold/80">Live summary</span>
             <span className="text-sm font-semibold">
-              {symbol ? `$${symbol}` : "Token"} · {formatBps(draft.fees.tradingFeeBps)}
+              {symbol ? `$${symbol}` : "Token"} · {pairLabel(draft.token.symbol, draft.markets.primary.quote)}
             </span>
           </span>
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/40">

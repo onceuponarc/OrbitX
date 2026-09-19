@@ -10,3 +10,5 @@ export { ModeDetails } from "@/components/custom-launch/mode-details";
 export { TokenPreview } from "@/components/custom-launch/token-preview";
 export { FeeRouter } from "@/components/custom-launch/fee-router";
 export { LaunchSummary } from "@/components/custom-launch/launch-summary";
+export { MarketRouter } from "@/components/custom-launch/market-router";
+export { AutomationGraph } from "@/components/custom-launch/automation-graph";

@@ -4,9 +4,14 @@ import { ControlPanel, MetricTile } from "@/components/custom-launch/panel";
 import { StatusChip } from "@/components/custom-launch/status-chip";
 import { useCustomLaunch } from "@/components/custom-launch/draft-provider";
 import {
+  configuredMarketCount,
+  formatEstimateUsd,
+  pairLabel,
+  primaryEstimate,
+} from "@/lib/custom-launch/markets";
+import {
   CUSTOM_LAUNCH_STEPS,
   formatBps,
-  formatHours,
   launchModeSummary,
   launchModeTitle,
   stepStatus,
@@ -44,7 +49,7 @@ export function ReviewStep() {
               >
                 <span>
                   <span className="block text-sm font-semibold">{step.label}</span>
-                  <span className="mt-0.5 block text-xs text-white/45">{summaryFor(step.id, draft, meta.quote)}</span>
+                  <span className="mt-0.5 block text-xs text-white/45">{summaryFor(step.id, draft)}</span>
                 </span>
                 <StatusChip status={status} />
               </button>
@@ -56,25 +61,22 @@ export function ReviewStep() {
         <Row label="Token" value={draft.token.name ? `${draft.token.name} · $${draft.token.symbol || "—"}` : "—"} />
         <Row label="Supply" value={draft.token.supply || "—"} />
         <Row label="Fees" value={`${formatBps(draft.fees.tradingFeeBps)} trading fee`} />
-        <Row
-          label="Primary"
-          value={
-            draft.primary.raiseTarget
-              ? `${draft.primary.raiseTarget} ${meta.quote} · ${formatHours(draft.primary.durationHours)}`
-              : "Raise not set"
-          }
-        />
+        <Row label="Primary" value={pairLabel(draft.token.symbol, draft.markets.primary.quote)} />
         <Row
           label="Secondary"
           value={
-            draft.secondary.listOnDex
-              ? `${draft.secondary.quotePair || "pair"} · seed ${draft.secondary.seedLiquidity || "—"}`
-              : "DEX listing off"
+            draft.markets.secondary.length
+              ? `${draft.markets.secondary.length} additional book${draft.markets.secondary.length === 1 ? "" : "s"}`
+              : "Primary only"
           }
         />
         <Row
           label="Automation"
-          value={`sweep ${draft.automation.feeSweep} · LP ${draft.automation.autoLiquidity ? "on" : "off"}`}
+          value={
+            draft.automation.rules.length
+              ? `${draft.automation.rules.length} rule${draft.automation.rules.length === 1 ? "" : "s"}`
+              : "No rules"
+          }
         />
       </dl>
     </ControlPanel>
@@ -93,8 +95,8 @@ function Row({ label, value }: { label: string; value: string }) {
 function summaryFor(
   id: (typeof CUSTOM_LAUNCH_STEPS)[number]["id"],
   draft: ReturnType<typeof useCustomLaunch>["draft"],
-  quote: string,
 ) {
+  const estimate = primaryEstimate(draft.markets, draft.token.supply);
   switch (id) {
     case "mode":
       return launchModeSummary(draft.mode);
@@ -103,15 +105,17 @@ function summaryFor(
     case "economics":
       return `${formatBps(draft.fees.tradingFeeBps)} trading fee`;
     case "primary":
-      return draft.primary.raiseTarget ? `${draft.primary.raiseTarget} ${quote}` : "Raise target required";
+      return estimate.valid
+        ? `${pairLabel(draft.token.symbol, draft.markets.primary.quote)} · ${formatEstimateUsd(estimate.liquidityUsd)}`
+        : "Select a primary market to continue.";
     case "secondary":
-      return draft.secondary.listOnDex
-        ? draft.secondary.seedLiquidity
-          ? `${draft.secondary.quotePair} · ${draft.secondary.seedLiquidity} ${quote}`
-          : "Seed liquidity required"
-        : "Listing off";
+      return draft.markets.secondary.length
+        ? `${draft.markets.secondary.length} secondary · ${configuredMarketCount(draft.markets, draft.token.supply)} configured`
+        : "Optional — primary only";
     case "automation":
-      return `Sweep ${draft.automation.feeSweep}`;
+      return draft.automation.rules.length
+        ? `${draft.automation.rules.length} rule${draft.automation.rules.length === 1 ? "" : "s"}`
+        : "No automation rules";
     default:
       return "";
   }

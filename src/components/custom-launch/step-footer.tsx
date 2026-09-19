@@ -9,7 +9,9 @@ export function StepFooter() {
   const prev = adjacentStep(step, -1);
   const next = adjacentStep(step, 1);
   const status = useStepStatus(step);
-  const blocked = (step === "token" || step === "economics") && status !== "complete";
+  const blocked =
+    (step === "token" || step === "economics" || step === "primary" || step === "secondary" || step === "automation") &&
+    status !== "complete";
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
