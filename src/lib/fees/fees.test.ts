@@ -64,20 +64,24 @@ describe("arc fee configuration", () => {
     expect(launchFeesEnabled("arc")).toBe(true);
   });
 
-  test("rh stays unmonetized while it has no revenue wallet of its own", () => {
-    expect(chainFeeConfig("rh").revenueWallet).toBeNull();
-    expect(tradeFeesEnabled("rh")).toBe(false);
-    expect(launchFeesEnabled("rh")).toBe(false);
+  test("rh collects 0.20% into the owner-supplied EVM wallet", () => {
+    const cfg = chainFeeConfig("rh");
+    expect(cfg.tradeFeeBps).toBe(20);
+    expect(cfg.launchFeeUsd).toBe(0.25);
+    expect(cfg.revenueWallet).toBe(ARC_WALLET);
+    expect(tradeFeesEnabled("rh")).toBe(true);
+    expect(launchFeesEnabled("rh")).toBe(true);
   });
 });
 
 describe("revenue wallet prohibitions", () => {
-  test("accepts the checksummed Arc wallet", () => {
+  test("accepts the checksummed Arc wallet on Arc and Robinhood Chain", () => {
     expect(assertUsableRevenueWallet("arc", ARC_WALLET)).toBe(ARC_WALLET);
+    expect(assertUsableRevenueWallet("rh", ARC_WALLET)).toBe(ARC_WALLET);
   });
 
   test("refuses a missing wallet rather than collecting into nowhere", () => {
-    expect(() => assertUsableRevenueWallet("rh", null)).toThrow(/No OrbitX revenue wallet/);
+    expect(() => assertUsableRevenueWallet("solana", null)).toThrow(/No OrbitX revenue wallet/);
   });
 
   test("refuses the zero and burn addresses", () => {

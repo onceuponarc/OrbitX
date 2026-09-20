@@ -9,7 +9,9 @@
  *
  * PHASE 8's standing prohibitions are kept as executable guards below rather
  * than as prose, so they survive future edits: no zero address, no placeholder,
- * and no reuse of another chain's revenue wallet.
+ * and no mixing a Solana revenue wallet into an EVM chain (or the reverse).
+ * Arc and Robinhood Chain may share the same EVM EOA when the owner supplies it
+ * for both.
  */
 
 export type ChainKey = "solana" | "rh" | "arc";
@@ -30,10 +32,12 @@ export type ChainFeeConfig = {
 const SOLANA_REVENUE_WALLET = "2WpoUM5YHKZF6xWM7qDx5f7gFGtNtkAJyQM8dU44CzDs";
 
 /**
- * Arc revenue wallet, supplied by the owner on 2026-09-16. EIP-55 checksum
- * verified before use; see assertUsableRevenueWallet.
+ * Owner-supplied EVM revenue wallet (Arc 2026-09-16, Robinhood Chain 2026-09-20).
+ * EIP-55 checksum verified before use; see assertUsableRevenueWallet.
  */
-const ARC_REVENUE_WALLET = "0xC1149913d96546c86956f042e4Ac9e9ad192f55F";
+const EVM_REVENUE_WALLET = "0xC1149913d96546c86956f042e4Ac9e9ad192f55F";
+const ARC_REVENUE_WALLET = EVM_REVENUE_WALLET;
+const RH_REVENUE_WALLET = EVM_REVENUE_WALLET;
 
 function envNumber(name: string): number | null {
   const raw = process.env?.[name];
@@ -63,10 +67,7 @@ const DEFAULTS: Record<ChainKey, ChainFeeConfig> = {
     chain: "rh",
     tradeFeeBps: 20,
     launchFeeUsd: 0.25,
-    // No RH revenue wallet has been supplied yet. Left null on purpose: an
-    // unmonetized chain must stay unmonetized rather than borrow another
-    // chain's wallet.
-    revenueWallet: null,
+    revenueWallet: RH_REVENUE_WALLET,
     feeAssetDecimals: 18,
     addressFormat: "evm",
   },
@@ -140,9 +141,12 @@ export function assertUsableRevenueWallet(chain: ChainKey, wallet: string | null
     throw new Error(`${chain} revenue wallet is not valid base58: ${wallet}`);
   }
 
-  // Cross-chain reuse guard: each chain's revenue must land in its own wallet.
+  // Do not send Solana revenue to an EVM wallet or EVM revenue to Solana.
+  // Arc and Robinhood Chain may share one owner EOA.
   for (const [key, other] of Object.entries(DEFAULTS) as [ChainKey, ChainFeeConfig][]) {
-    if (key !== chain && other.revenueWallet && other.revenueWallet.toLowerCase() === wallet.toLowerCase()) {
+    if (key === chain || !other.revenueWallet) continue;
+    if (other.addressFormat === cfg.addressFormat) continue;
+    if (other.revenueWallet.toLowerCase() === wallet.toLowerCase()) {
       throw new Error(`Refusing to use the ${key} revenue wallet on ${chain}.`);
     }
   }

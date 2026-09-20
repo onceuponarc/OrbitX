@@ -283,4 +283,13 @@ try {
 }
 assert(holderThrew, "malformed holder lines are rejected");
 
+const { protocolDestinationForChain } = await import("../src/lib/custom-launch/onchain/validate.ts");
+const { chainFeeConfig, assertUsableRevenueWallet } = await import("../src/lib/fees/chains.ts");
+const evmRevenue = "0xC1149913d96546c86956f042e4Ac9e9ad192f55F";
+assert(chainFeeConfig("arc").revenueWallet === evmRevenue, "Arc revenue wallet is the owner EOA");
+assert(chainFeeConfig("rh").revenueWallet === evmRevenue, "RH revenue wallet is the owner EOA");
+assert(assertUsableRevenueWallet("rh", evmRevenue) === evmRevenue, "RH accepts the owner EOA");
+assert(protocolDestinationForChain("robinhood") === evmRevenue, "Custom Launch RH protocol dest is the owner EOA");
+assert(protocolDestinationForChain("arc") === evmRevenue, "Custom Launch Arc protocol dest is the owner EOA");
+
 console.log(JSON.stringify({ ok: true, customLaunch: "onchain-phase-2" }));
