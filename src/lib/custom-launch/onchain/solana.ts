@@ -12,6 +12,7 @@ import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
   createBurnInstruction,
+  createInitializeMetadataPointerInstruction,
   createInitializeMint2Instruction,
   createInitializeTransferFeeConfigInstruction,
   createMintToInstruction,
@@ -28,7 +29,7 @@ import { solanaConnection } from "@/lib/solana/connection";
 import { explorerAddress, explorerTx } from "@/lib/solana/explorer";
 import { deskSolanaKey } from "@/lib/wallets/sign-desk";
 import { sendSignedTx, waitForTx } from "@/lib/solana/partial-tx";
-import { createMetadataV3Instruction } from "@/lib/solana/token-metadata";
+import { createFungibleMetadataInstruction, metadataPda } from "@/lib/solana/token-metadata";
 import { getJupiterQuote, getJupiterSwapTx, WSOL_MINT } from "@/lib/solana/jupiter";
 import { inspectMint } from "@/lib/solana/mint";
 import type { CustomLaunchAdapter, AdapterContext, DeployResult, ExecuteResult } from "@/lib/custom-launch/onchain/types";
@@ -134,7 +135,12 @@ export async function deploySolanaToken(draft: CustomLaunchDraft, ctx: AdapterCo
   const supply = parseSupply(draft.token.supply) * 10n ** BigInt(decimals);
   const taxBps = draft.fees.tradingFeeBps;
   const withFee = standard === "token2022" && taxBps > 0;
-  const mintLen = withFee ? getMintLen([ExtensionType.TransferFeeConfig]) : MINT_SIZE;
+  const token2022Extensions = withFee
+    ? [ExtensionType.MetadataPointer, ExtensionType.TransferFeeConfig]
+    : standard === "token2022"
+      ? [ExtensionType.MetadataPointer]
+      : [];
+  const mintLen = token2022Extensions.length ? getMintLen(token2022Extensions) : MINT_SIZE;
   const lamports = await conn.getMinimumBalanceForRentExemption(mintLen);
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
   const curveAta = getAssociatedTokenAddressSync(mint.publicKey, curve.publicKey, false, programId);
@@ -143,6 +149,7 @@ export async function deploySolanaToken(draft: CustomLaunchDraft, ctx: AdapterCo
   const tx = new Transaction({ feePayer: payer.publicKey, recentBlockhash: blockhash });
   tx.add(
     ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 }),
     SystemProgram.createAccount({
       fromPubkey: payer.publicKey,
       newAccountPubkey: mint.publicKey,
@@ -151,6 +158,16 @@ export async function deploySolanaToken(draft: CustomLaunchDraft, ctx: AdapterCo
       programId,
     }),
   );
+  if (standard === "token2022") {
+    tx.add(
+      createInitializeMetadataPointerInstruction(
+        mint.publicKey,
+        protocol.publicKey,
+        metadataPda(mint.publicKey),
+        TOKEN_2022_PROGRAM_ID,
+      ),
+    );
+  }
   if (withFee) {
     tx.add(
       createInitializeTransferFeeConfigInstruction(
@@ -180,8 +197,7 @@ export async function deploySolanaToken(draft: CustomLaunchDraft, ctx: AdapterCo
       programId,
     ),
     createMintToInstruction(mint.publicKey, curveAta, protocol.publicKey, supply, [], programId),
-    createSetAuthorityInstruction(mint.publicKey, protocol.publicKey, AuthorityType.MintTokens, null, [], programId),
-    createMetadataV3Instruction({
+    createFungibleMetadataInstruction({
       mint: mint.publicKey,
       mintAuthority: protocol.publicKey,
       payer: payer.publicKey,
@@ -189,7 +205,9 @@ export async function deploySolanaToken(draft: CustomLaunchDraft, ctx: AdapterCo
       name: draft.token.name,
       symbol: draft.token.symbol,
       uri: draft.token.imageUrl || "",
+      tokenProgram: programId,
     }),
+    createSetAuthorityInstruction(mint.publicKey, protocol.publicKey, AuthorityType.MintTokens, null, [], programId),
     SystemProgram.transfer({
       fromPubkey: payer.publicKey,
       toPubkey: curve.publicKey,
@@ -199,8 +217,7 @@ export async function deploySolanaToken(draft: CustomLaunchDraft, ctx: AdapterCo
 
   tx.sign(payer, mint, protocol);
   const signature = await sendSignedTx(tx.serialize().toString("base64"));
-  await waitForTx(signature);
-  void lastValidBlockHeight;
+  await waitForTx(signature, lastValidBlockHeight);
   void protocolDestinationForChain("solana");
 
   return {

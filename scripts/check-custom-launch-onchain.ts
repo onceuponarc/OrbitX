@@ -97,6 +97,24 @@ assert(solana.includes("customLaunchVaultKeypair"), "Solana vaults are protocol-
 assert(solana.includes("customLaunchCurveKeypair"), "Solana curve vault is protocol-derived");
 assert(solana.includes("TOKEN_PROGRAM_ID"), "Solana Custom Launch supports SPL");
 assert(solana.includes("TOKEN_2022_PROGRAM_ID"), "Solana Custom Launch supports Token-2022");
+assert(solana.includes("createFungibleMetadataInstruction"), "Solana Custom Launch uses Metaplex CreateV1 for fungible metadata");
+assert(!solana.includes("createMetadataV3Instruction"), "Token-2022 must not use CreateMetadataAccountV3");
+assert(solana.includes("createInitializeMetadataPointerInstruction"), "Token-2022 mints initialize a metadata pointer");
+assert(solana.lastIndexOf("createFungibleMetadataInstruction") < solana.lastIndexOf("createSetAuthorityInstruction"), "metadata is written before mint authority is revoked");
+assert(solana.includes("waitForTx(signature, lastValidBlockHeight)"), "deploy confirms against the signed blockhash, not a fresh one");
+assert(solana.includes("setComputeUnitPrice"), "deploy pays a priority fee so the mint can land");
+
+const metadata = read("../src/lib/solana/token-metadata.ts");
+assert(metadata.includes("CREATE_METADATA_V1_DISCRIMINATOR = 42"), "CreateV1 discriminator is 42");
+assert(metadata.includes("TOKEN_STANDARD_FUNGIBLE = 2"), "CreateV1 marks the mint fungible");
+assert(metadata.includes("SYSVAR_INSTRUCTIONS_PUBKEY"), "CreateV1 includes the instructions sysvar");
+assert(metadata.includes("tokenProgram"), "CreateV1 passes the mint's token program");
+
+const wait = read("../src/lib/solana/partial-tx.ts");
+assert(wait.includes("lastValidBlockHeight"), "waitForTx can use the signed lastValidBlockHeight");
+assert(!wait.includes("confirmTransaction({ signature, ...latest }"), "waitForTx must not confirm against a fresh blockhash");
+assert(wait.includes("getSignatureStatus"), "waitForTx polls the landed signature");
+assert(wait.includes("skipPreflight: false"), "program simulation errors are not force-sent");
 assert(!solana.includes("exportDeskSecret"), "strategy vaults must not use exportable desk secrets");
 assert(solana.includes("Remove liquidity is not a Custom Launch action"), "Solana adapter blocks remove-liquidity");
 assert(!solana.includes("seedSolanaPumpSwapPool"), "Solana deploy does not seed PumpSwap from OrbitX");
