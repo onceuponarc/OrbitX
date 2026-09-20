@@ -248,15 +248,16 @@ export function CustomLaunchDraftProvider({
   }, [capabilities, chain, signedIn]);
 
   const value = useMemo<CustomLaunchContextValue>(() => {
-    const deployBlockedReason = sessionLoading
-      ? null
-      : !signedIn
-        ? "Sign in to broadcast this Custom Launch from your OrbitX desk."
-        : !capabilities
-          ? "Could not load chain capability."
-          : !capabilities.tokenCreate
-            ? capabilities.note
-            : null;
+    const reasons = [];
+    if (!sessionLoading && !signedIn) {
+      reasons.push("Sign in to broadcast this Custom Launch from your OrbitX desk.");
+    }
+    if (!sessionLoading && !capabilities) {
+      reasons.push("Could not load chain capability.");
+    } else if (!sessionLoading && capabilities && !capabilities.tokenCreate) {
+      reasons.push(capabilities.note);
+    }
+    const deployBlockedReason = reasons.length ? reasons.join(" ") : null;
     return {
       chain,
       meta: CUSTOM_CHAIN_META[chain],
