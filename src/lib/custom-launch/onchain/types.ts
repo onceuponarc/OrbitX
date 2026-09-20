@@ -60,6 +60,8 @@ export type AdapterContext = {
   minOut?: bigint;
   recipients?: { address: string; amount: bigint }[];
   vaults?: Partial<Record<string, string>>;
+  tradeFeeBps?: number;
+  splitBps?: number[];
 };
 
 export type UnsupportedOperation = {

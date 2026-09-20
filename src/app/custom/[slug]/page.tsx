@@ -81,7 +81,7 @@ export default async function CustomTokenPage({ params }: Props) {
       <section className="ox-console rounded-[1.5rem] p-6">
         <h2 className="text-xl font-semibold">Markets</h2>
         <p className="mt-1 text-sm text-white/45">
-          Primary is created only when the chain has a Custom Launch pool. Secondary books are recorded, not deployed.
+          Primary is created when this launch has a Custom Launch pool. Secondary books are recorded, not deployed.
         </p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {view.markets.map((market, index) => (

@@ -19,6 +19,9 @@ const types = [
   "../src/lib/custom-launch/onchain/validate.ts",
   "../src/lib/custom-launch/onchain/evm.ts",
   "../src/lib/custom-launch/onchain/solana.ts",
+  "../src/lib/custom-launch/onchain/solana-pool.ts",
+  "../src/lib/custom-launch/onchain/solana-keys.ts",
+  "../src/lib/custom-launch/onchain/pool-math.ts",
   "../src/lib/custom-launch/onchain/actions.ts",
   "../src/lib/custom-launch/execute.ts",
   "../src/lib/custom-launch/deploy.ts",
@@ -74,10 +77,25 @@ const token = read("../contracts/src/custom-launch/CustomLaunchToken.sol");
 assert(token.includes("if (msg.sender != hub)"), "only hub can burn");
 
 const solana = read("../src/lib/custom-launch/onchain/solana.ts");
-assert(solana.includes("poolCreate: false"), "Solana adapter does not fake a pool");
+assert(solana.includes("poolCreate: true"), "Solana adapter exposes the add-only Custom Launch pool");
+assert(solana.includes("feeRouter: true"), "Solana adapter exposes fee harvest");
+assert(solana.includes("addLiquidity: true"), "Solana adapter can add liquidity");
 assert(solana.includes("protocol.publicKey"), "Solana mint/withdraw authority is protocol");
 assert(solana.includes("customLaunchVaultKeypair"), "Solana vaults are protocol-derived");
 assert(!solana.includes("exportDeskSecret"), "strategy vaults must not use exportable desk secrets");
+assert(solana.includes("Remove liquidity is not a Custom Launch action"), "Solana adapter blocks remove-liquidity");
+
+const solanaPool = read("../src/lib/custom-launch/onchain/solana-pool.ts");
+assert(solanaPool.includes("addLiquidityUnits"), "Solana pool uses add-only CPMM units");
+assert(!solanaPool.includes("function removeLiquidity"), "Solana pool must not implement removeLiquidity");
+assert(!solanaPool.includes("withdrawLiquidity"), "Solana pool must not withdraw liquidity");
+assert(solanaPool.includes("No harvestable Custom Launch fees"), "empty harvest is not a fake success");
+assert(solanaPool.includes("createSyncNativeInstruction"), "SOL quote wraps to WSOL");
+
+const poolMath = read("../src/lib/custom-launch/onchain/pool-math.ts");
+assert(poolMath.includes("No remove / withdraw / drain"), "pool math documents add-only");
+assert(poolMath.includes("PROTOCOL_SHARE_BPS = 2_500"), "pool math locks protocol share");
+assert(poolMath.includes("MAX_TRADE_FEE_BPS = 500"), "pool math caps the trade fee");
 
 const evm = read("../src/lib/custom-launch/onchain/evm.ts");
 assert(evm.includes("waitForTransactionReceipt"), "EVM waits for confirmation");
@@ -282,5 +300,92 @@ try {
   holderThrew = true;
 }
 assert(holderThrew, "malformed holder lines are rejected");
+
+const {
+  integerSqrt,
+  swapQuoteOut,
+  addLiquidityUnits,
+  harvestShares,
+  parseTokenAmount,
+  tokenInForQuote,
+  PROTOCOL_SHARE_BPS,
+} = await import("../src/lib/custom-launch/onchain/pool-math.ts");
+
+const tokenSeed = 200_000_000n * 10n ** 18n;
+const quoteSeed = 10_000n * 10n ** 6n;
+const seedUnits = addLiquidityUnits({
+  tokenIn: tokenSeed,
+  quoteIn: quoteSeed,
+  reserveToken: 0n,
+  reserveQuote: 0n,
+  liquidityUnits: 0n,
+});
+assert(seedUnits === integerSqrt(tokenSeed * quoteSeed), "first seed units are sqrt(token*quote)");
+assert(seedUnits > 0n, "seed units are positive");
+
+const swap = swapQuoteOut({
+  quoteIn: true,
+  amountIn: 1_000n * 10n ** 6n,
+  tradeFeeBps: 300,
+  reserveToken: tokenSeed,
+  reserveQuote: quoteSeed,
+});
+const expectedFee = (1_000n * 10n ** 6n * 300n) / 10_000n;
+assert(swap.fee === expectedFee, "swap fee matches EVM amountIn * bps / 10000");
+assert(swap.amountOut === ( (1_000n * 10n ** 6n - expectedFee) * tokenSeed) / (quoteSeed + (1_000n * 10n ** 6n - expectedFee)), "x*y=k quote-in matches EVM");
+
+const split = [2500, 2500, 1500, 1500, 1000, 500, 200, 200, 100];
+const shares = harvestShares(expectedFee, split);
+assert(shares.reduce((sum, row) => sum + row.share, 0n) === expectedFee, "harvest splits 100% of fees");
+assert(shares.find((row) => row.name === "orbitx")?.share === (expectedFee * BigInt(PROTOCOL_SHARE_BPS)) / 10_000n, "protocol harvest share is 25%");
+assert(shares.find((row) => row.name === "buyback")?.share === (expectedFee * 1000n) / 10_000n, "buyback harvest share matches EVM test");
+
+const dust = harvestShares(1n, split);
+assert(dust.reduce((sum, row) => sum + row.share, 0n) === 1n, "dust harvest still sums to 100%");
+assert(dust.at(-1)?.share === 1n, "rounding remainder goes to the last destination");
+
+threw = false;
+try {
+  harvestShares(100n, [2400, 2600, 1500, 1500, 1000, 500, 200, 200, 100]);
+} catch {
+  threw = true;
+}
+assert(threw, "harvest rejects a rewritten protocol share");
+
+threw = false;
+try {
+  addLiquidityUnits({ tokenIn: 0n, quoteIn: 1n, reserveToken: 1n, reserveQuote: 1n, liquidityUnits: 1n });
+} catch {
+  threw = true;
+}
+assert(threw, "add-liquidity rejects a zero side");
+
+assert(parseTokenAmount("50", 9) === 50n * 10n ** 9n, "SOL seed amount is 9 decimals");
+assert(parseTokenAmount("5000", 6) === 5000n * 10n ** 6n, "USDC seed amount is 6 decimals");
+assert(tokenInForQuote(1_000n * 10n ** 6n, tokenSeed, quoteSeed) === (1_000n * 10n ** 6n * tokenSeed) / quoteSeed, "add-liquidity token side matches StrategyHub");
+
+threw = false;
+try {
+  swapQuoteOut({ quoteIn: true, amountIn: 1n, tradeFeeBps: 501, reserveToken: 1n, reserveQuote: 1n });
+} catch {
+  threw = true;
+}
+assert(threw, "pool math rejects fees above 5%");
+
+const { customLaunchPoolKeypair, customLaunchFeeRouterKeypair, customLaunchVaultKeypair } = await import(
+  "../src/lib/custom-launch/onchain/solana-keys.ts"
+);
+const poolA = customLaunchPoolKeypair("launch-1");
+const poolB = customLaunchPoolKeypair("launch-1");
+assert(poolA.publicKey.equals(poolB.publicKey), "pool authority is deterministic per launch");
+assert(!poolA.publicKey.equals(customLaunchPoolKeypair("launch-2").publicKey), "pool authority is unique per launch");
+assert(
+  !poolA.publicKey.equals(customLaunchFeeRouterKeypair("launch-1").publicKey),
+  "fee router is a distinct protocol-derived key",
+);
+assert(
+  !poolA.publicKey.equals(customLaunchVaultKeypair("launch-1", "buyback").publicKey),
+  "pool authority is not a strategy vault",
+);
 
 console.log(JSON.stringify({ ok: true, customLaunch: "onchain-phase-2" }));

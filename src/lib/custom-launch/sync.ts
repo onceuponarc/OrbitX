@@ -102,7 +102,13 @@ export async function syncLaunchVaults(launch: LaunchRow): Promise<VaultBalanceR
 
 async function poolReserves(launch: LaunchRow): Promise<{ token: bigint; quote: bigint } | null> {
   if (!launch.pool_address) return null;
-  if (launch.chain === "solana") return null;
+  if (launch.chain === "solana") {
+    if (!launch.token_address || !launch.quote_address) return null;
+    const token = await solanaAtaBalance(launch.token_address, launch.pool_address, TOKEN_2022_PROGRAM_ID);
+    const quote = await solanaAtaBalance(launch.quote_address, launch.pool_address, TOKEN_PROGRAM_ID);
+    if (token <= 0n && quote <= 0n) return null;
+    return { token, quote };
+  }
   const rpc = evmRpc(launch.chain);
   if (!rpc) return null;
   const pub = createPublicClient({ transport: http(rpc) });
@@ -142,8 +148,8 @@ export async function liveReadingsForLaunch(
     const supply = BigInt(launch.supply || "0") * 10n ** BigInt(launch.decimals || 0);
     marketCap = humanAmount((reserves.quote * supply) / reserves.token, quoteDec);
     source.marketCap = "chain";
-  } else if (launch.chain === "solana" || !launch.pool_address) {
-    notes.push("No Custom Launch pool on this chain, so market cap and liquidity readings are unavailable.");
+  } else if (!launch.pool_address) {
+    notes.push("No Custom Launch pool address, so market cap and liquidity readings are unavailable.");
   }
   return {
     feeBalance,

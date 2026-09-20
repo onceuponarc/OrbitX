@@ -2,6 +2,7 @@ import "server-only";
 
 import { customLaunchAdapter } from "@/lib/custom-launch/onchain";
 import { protocolDestinationForChain } from "@/lib/custom-launch/onchain/validate";
+import { splitArray } from "@/lib/custom-launch/onchain/splits";
 import { insertPreparingLaunch, markLaunchDeploying, markLaunchFailed, markLaunchLive } from "@/lib/custom-launch/persist";
 import { solanaVaultAddresses } from "@/lib/custom-launch/onchain/solana";
 import { launchIsReady } from "@/lib/custom-launch/readiness";
@@ -79,6 +80,8 @@ export async function deployCustomLaunch(input: { userId: string; draft: CustomL
       treasury: treasury || creatorAddress,
       community: community || creatorAddress,
       quoteAddress,
+      tradeFeeBps: draft.fees.tradingFeeBps,
+      splitBps: splitArray(draft),
     });
     if (!result.txHash || !result.tokenAddress) {
       throw new Error("Deployment did not return a confirmed token address and transaction.");

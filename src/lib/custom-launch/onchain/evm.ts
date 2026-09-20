@@ -10,7 +10,7 @@ import {
 } from "viem";
 import { deskEvmWallet } from "@/lib/wallets/sign-desk";
 import { deskRhWallet } from "@/lib/wallets/rh-client";
-import { ACTION_TO_ID, DEST_INDEX, ERC20_ABI, FACTORY_ABI, HUB_ABI, ROUTER_ABI } from "@/lib/custom-launch/onchain/abi";
+import { ACTION_TO_ID, ERC20_ABI, FACTORY_ABI, HUB_ABI, ROUTER_ABI } from "@/lib/custom-launch/onchain/abi";
 import type { CustomLaunchAdapter, AdapterContext, DeployResult, ExecuteResult } from "@/lib/custom-launch/onchain/types";
 import { assertAllowedAction, assertFeeSplits, assertTradingFeeBps, protocolDestinationForChain } from "@/lib/custom-launch/onchain/validate";
 import { resolvedFeeAllocations } from "@/lib/custom-launch/fees";
@@ -19,6 +19,7 @@ import { ARC_USDC } from "@/lib/arc/argus";
 import type { PrintableChain } from "@onceupon/config/solana";
 import type { CustomLaunchDraft } from "@/lib/custom-launch/schema";
 import { flywheelActionIds } from "@/lib/custom-launch/onchain/actions";
+import { splitArray } from "@/lib/custom-launch/onchain/splits";
 
 function factoryAddress(chain: PrintableChain): Address | null {
   const env = chain === "arc" ? process.env.CUSTOM_LAUNCH_FACTORY_ARC : process.env.CUSTOM_LAUNCH_FACTORY_RH;
@@ -31,16 +32,7 @@ function explorer(chain: PrintableChain, hash: string) {
   return `https://robinhoodchain.blockscout.com/tx/${hash}`;
 }
 
-export function splitArray(draft: CustomLaunchDraft) {
-  const rows = resolvedFeeAllocations(draft.mode, draft.fees);
-  const out = [0, 0, 0, 0, 0, 0, 0, 0, 0] as [number, number, number, number, number, number, number, number, number];
-  for (const row of rows) {
-    const key = row.id === "custom" ? "community" : row.id;
-    const idx = DEST_INDEX[key as keyof typeof DEST_INDEX];
-    if (idx !== undefined) out[idx] += row.bps;
-  }
-  return out;
-}
+export { splitArray } from "@/lib/custom-launch/onchain/splits";
 
 async function evmClients(chain: "arc" | "robinhood", userId: string) {
   if (chain === "robinhood") {

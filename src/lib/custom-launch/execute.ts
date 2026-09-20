@@ -2,6 +2,7 @@ import "server-only";
 
 import { customLaunchAdapter, enabledExecuteActions } from "@/lib/custom-launch/onchain";
 import { assertAllowedAction, protocolDestinationForChain, type ExecuteAction } from "@/lib/custom-launch/onchain/validate";
+import { splitArray } from "@/lib/custom-launch/onchain/splits";
 import {
   insertDistributions,
   insertExecution,
@@ -78,6 +79,8 @@ export async function executeCustomLaunchAction(input: {
       community: launch.community_address ?? undefined,
       minOut: input.minOut ? BigInt(input.minOut) : 0n,
       recipients: recipients?.map((row) => ({ address: row.address, amount: BigInt(row.amount) })),
+      tradeFeeBps: launch.trade_fee_bps,
+      splitBps: splitArray(draft),
     });
     txHash = result.txHash;
     explorer = result.explorer;

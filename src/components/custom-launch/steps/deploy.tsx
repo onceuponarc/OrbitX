@@ -46,9 +46,9 @@ export function DeployStep() {
         <div className="mt-5 rounded-2xl border border-gold/20 bg-gold/5 px-4 py-4">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-gold">On-chain desk</p>
           <p className="mt-2 text-sm leading-relaxed text-white/70">
-            Confirming this print creates the token and, where the chain has a Custom Launch factory, the
-            pool, fee router, and strategy hub. Remove-liquidity is not available. Success requires a
-            confirmed transaction hash.
+            Confirming this print creates the token and, where the chain supports a Custom Launch pool,
+            the add-only book, fee router, and strategy vaults. Remove-liquidity is not available. Success
+            requires a confirmed transaction hash.
           </p>
         </div>
 
