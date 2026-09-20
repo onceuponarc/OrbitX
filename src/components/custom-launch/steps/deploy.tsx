@@ -12,31 +12,31 @@ export function DeployStep() {
   const { draft, meta, ready, missing, setStep, deployPhase } = useCustomLaunch();
 
   if (deployPhase === "running") return <DeploymentProgress />;
-  if (deployPhase === "ready") return <DeploymentSuccess />;
+  if (deployPhase === "ready" || deployPhase === "failed") return <DeploymentSuccess />;
 
   return (
     <div className="space-y-4">
       <ControlPanel
         eyebrow="08 · Deploy"
-        title="Preview the print. Do not broadcast."
-        body="This phase is the Custom Launch control surface only. OrbitX will not sign, submit, collect fees, or create a pool from this screen. The draft stays in this browser."
+        title="Broadcast the Custom Launch."
+        body="Deployment is signed by the OrbitX desk, not the browser wallet. Strategy vaults are protocol-controlled. Normal Launch is unchanged."
       >
         <div className="grid gap-3 sm:grid-cols-3">
           <MetricTile label="Venue" value={meta.longLabel} hint={meta.venue} />
           <MetricTile label="Launch type" value="Custom" tone="live" />
           <MetricTile
             label="Desk state"
-            value={draft.reviewedAt ? "Reviewed locally" : ready ? "Ready to review" : "Incomplete"}
+            value={draft.reviewedAt ? "Reviewed" : ready ? "Ready to review" : "Incomplete"}
             tone={draft.reviewedAt ? "live" : ready ? "default" : "warn"}
           />
         </div>
 
         <div className="mt-5 rounded-2xl border border-gold/20 bg-gold/5 px-4 py-4">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-gold">UI foundation</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-gold">On-chain desk</p>
           <p className="mt-2 text-sm leading-relaxed text-white/70">
-            No transaction is created here. There is no confirmation on-chain, no explorer link, and no claim
-            that a token exists. Finish the draft, preview the mock print, and wait for a later phase to
-            wire the real desk. The configuration is still not deployed.
+            Confirming this print creates the token and, where the chain has a Custom Launch factory, the
+            pool, fee router, and strategy hub. Remove-liquidity is not available. Success requires a
+            confirmed transaction hash.
           </p>
         </div>
 

@@ -6,7 +6,7 @@ import { useCustomLaunch } from "@/components/custom-launch/draft-provider";
 import { reviewSnapshot } from "@/lib/custom-launch/review";
 
 export function DeploymentConfirmation() {
-  const { draft, deployPhase, closeDeployConfirm, startMockDeploy, setStep } = useCustomLaunch();
+  const { draft, deployPhase, closeDeployConfirm, startDeploy, setStep } = useCustomLaunch();
   const [understood, setUnderstood] = useState(false);
   const snap = reviewSnapshot(draft);
 
@@ -25,7 +25,8 @@ export function DeploymentConfirmation() {
           Deploy Custom Launch?
         </h3>
         <p className="mt-2 text-sm text-white/50">
-          This is a local mock only. No token, pool, contract, or transaction is created.
+          This submits a real on-chain deployment from your OrbitX desk. Strategy vaults are protocol-controlled.
+          Liquidity cannot be removed later through Custom Launch.
         </p>
         <dl className="mt-5 grid gap-3 rounded-2xl border border-white/10 px-4 py-4 text-sm sm:grid-cols-2">
           <Row label="Chain" value={snap.chain.longLabel} />
@@ -61,7 +62,14 @@ export function DeploymentConfirmation() {
           >
             Review Configuration
           </Button>
-          <Button type="button" disabled={!understood} onClick={startMockDeploy}>
+          <Button
+            type="button"
+            disabled={!understood}
+            onClick={() => {
+              closeDeployConfirm();
+              void startDeploy();
+            }}
+          >
             Deploy
           </Button>
         </div>

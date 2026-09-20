@@ -1,8 +1,8 @@
-/** Single mock source for the OrbitX protocol Custom Launch destination. */
+/** Single source for the OrbitX protocol Custom Launch destination (Solana). */
 export const ORBITX_PROTOCOL = {
   label: "OrbitX Protocol",
   destination: "4qD4UBf9y9wRM51qHYccucAJadB24PRSEku7JWpXV6wu",
-  /** Locked share of Custom Launch trading fees. Replace when contracts bind. */
+  /** Locked share of Custom Launch trading fees. Enforced on-chain for EVM factories. */
   allocationBps: 2500,
 } as const;
 

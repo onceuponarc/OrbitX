@@ -68,7 +68,7 @@ export function feeRoutingLine(allocations: FeeAllocation[]) {
 
 export function allocationDestination(id: FeeAllocation["id"]) {
   if (id === "orbitx") return ORBITX_PROTOCOL.destination;
-  return `Local ${FEE_DESTINATIONS[id].label} destination · mock`;
+  return `Configured ${FEE_DESTINATIONS[id].label} destination`;
 }
 
 export function formatMarketCapMark(value: string) {

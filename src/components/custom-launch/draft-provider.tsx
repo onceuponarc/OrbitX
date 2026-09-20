@@ -4,18 +4,12 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
 import type { PrintableChain } from "@onceupon/config/solana";
-import {
-  createMockDeployResult,
-  MOCK_DEPLOY_STAGES,
-  type MockDeployResult,
-} from "@/lib/custom-launch/mock-deploy";
 import { launchIsReady } from "@/lib/custom-launch/readiness";
 import {
   adjacentStep,
@@ -36,7 +30,16 @@ import {
   subscribeCustomLaunchDraft,
 } from "@/lib/custom-launch/draft";
 
-export type MockDeployPhase = "idle" | "confirming" | "running" | "ready";
+export type DeployPhase = "idle" | "confirming" | "running" | "ready" | "failed";
+
+export type DeployResultView = {
+  tokenAddress: string;
+  poolAddress: string | null;
+  launchId: string;
+  slug: string;
+  transaction: string;
+  explorer: string | null;
+};
 
 type PatchSection = {
   [K in keyof CustomLaunchDraft]: CustomLaunchDraft[K] extends Record<string, unknown>
@@ -59,15 +62,22 @@ type CustomLaunchContextValue = {
   total: number;
   ready: boolean;
   missing: ReturnType<typeof incompleteSteps>;
-  deployPhase: MockDeployPhase;
+  deployPhase: DeployPhase;
   deployStage: number;
-  mockResult: MockDeployResult | null;
+  deployResult: DeployResultView | null;
+  deployError: string | null;
   openDeployConfirm: () => void;
   closeDeployConfirm: () => void;
-  startMockDeploy: () => void;
+  startDeploy: () => Promise<void>;
 };
 
 const CustomLaunchContext = createContext<CustomLaunchContextValue | null>(null);
+
+export const DEPLOY_STAGES = [
+  { id: "validate", label: "Validating configuration" },
+  { id: "submit", label: "Submitting deployment" },
+  { id: "confirm", label: "Waiting for chain confirmation" },
+] as const;
 
 export function CustomLaunchDraftProvider({
   chain,
@@ -82,9 +92,10 @@ export function CustomLaunchDraftProvider({
     () => getCustomLaunchDraftServerSnapshot(chain),
   );
   const [step, setStep] = useState<CustomLaunchStepId>("mode");
-  const [deployPhase, setDeployPhase] = useState<MockDeployPhase>("idle");
+  const [deployPhase, setDeployPhase] = useState<DeployPhase>("idle");
   const [deployStage, setDeployStage] = useState(0);
-  const [mockResult, setMockResult] = useState<MockDeployResult | null>(null);
+  const [deployResult, setDeployResult] = useState<DeployResultView | null>(null);
+  const [deployError, setDeployError] = useState<string | null>(null);
 
   const patch = useCallback(
     <K extends PatchSection>(key: K, next: Partial<CustomLaunchDraft[K]>) => {
@@ -108,7 +119,8 @@ export function CustomLaunchDraftProvider({
     setStep("mode");
     setDeployPhase("idle");
     setDeployStage(0);
-    setMockResult(null);
+    setDeployResult(null);
+    setDeployError(null);
   }, [chain]);
 
   const markReviewed = useCallback(() => {
@@ -131,25 +143,49 @@ export function CustomLaunchDraftProvider({
     setDeployPhase((phase) => (phase === "confirming" ? "idle" : phase));
   }, []);
 
-  const startMockDeploy = useCallback(() => {
+  const startDeploy = useCallback(async () => {
     const current = getCustomLaunchDraftSnapshot(chain);
     if (!launchIsReady(current)) return;
     setCustomLaunchDraft(chain, { ...current, reviewedAt: new Date().toISOString() });
-    setMockResult(createMockDeployResult(current.token.symbol, current.chain, current.markets.primary.quote));
-    setDeployStage(0);
+    setDeployResult(null);
+    setDeployError(null);
+    setDeployStage(1);
     setDeployPhase("running");
     setStep("deploy");
-  }, [chain]);
-
-  useEffect(() => {
-    if (deployPhase !== "running") return;
-    if (deployStage >= MOCK_DEPLOY_STAGES.length) {
+    try {
+      const response = await fetch("/api/custom-launch/deploy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ draft: current }),
+      });
+      setDeployStage(2);
+      const body = (await response.json()) as {
+        error?: string;
+        launchId?: string;
+        slug?: string;
+        tokenAddress?: string;
+        poolAddress?: string | null;
+        txHash?: string;
+        explorer?: string | null;
+      };
+      if (!response.ok || !body.txHash || !body.tokenAddress || !body.launchId) {
+        throw new Error(body.error || "Deployment did not confirm on-chain.");
+      }
+      setDeployStage(3);
+      setDeployResult({
+        tokenAddress: body.tokenAddress,
+        poolAddress: body.poolAddress ?? null,
+        launchId: body.launchId,
+        slug: body.slug || body.launchId,
+        transaction: body.txHash,
+        explorer: body.explorer ?? null,
+      });
       setDeployPhase("ready");
-      return;
+    } catch (error) {
+      setDeployError(error instanceof Error ? error.message : "Custom Launch deployment failed.");
+      setDeployPhase("failed");
     }
-    const timer = window.setTimeout(() => setDeployStage((value) => value + 1), 480);
-    return () => window.clearTimeout(timer);
-  }, [deployPhase, deployStage]);
+  }, [chain]);
 
   const value = useMemo<CustomLaunchContextValue>(() => {
     return {
@@ -169,24 +205,26 @@ export function CustomLaunchDraftProvider({
       missing: incompleteSteps(draft),
       deployPhase,
       deployStage,
-      mockResult,
+      deployResult,
+      deployError,
       openDeployConfirm,
       closeDeployConfirm,
-      startMockDeploy,
+      startDeploy,
     };
   }, [
     chain,
     closeDeployConfirm,
+    deployError,
     deployPhase,
+    deployResult,
     deployStage,
     draft,
     goAdjacent,
     markReviewed,
-    mockResult,
     openDeployConfirm,
     patch,
     reset,
-    startMockDeploy,
+    startDeploy,
     step,
     update,
   ]);
@@ -196,7 +234,7 @@ export function CustomLaunchDraftProvider({
 
 export function useCustomLaunch() {
   const ctx = useContext(CustomLaunchContext);
-  if (!ctx) throw new Error("useCustomLaunch must be used inside CustomLaunchDraftProvider");
+  if (!ctx) throw new Error("useCustomLaunch must be inside CustomLaunchDraftProvider");
   return ctx;
 }
 

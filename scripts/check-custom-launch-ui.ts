@@ -34,7 +34,9 @@ assert(!normal.includes("/custom"), "Normal chain page must not route into Custo
 assert(custom.includes("CustomLaunchWizard"), "custom route mounts the wizard");
 assert(custom.includes("isPrintableChain"), "custom route rejects unknown chains");
 assert(!custom.includes("getSessionUser"), "custom route must not pull wallet session");
-assert(!custom.includes("/api/"), "custom page must not call launch APIs");
+assert(!custom.includes("/api/solana/launch"), "custom page must not call Normal Solana launch");
+assert(!custom.includes("/api/arc/launch"), "custom page must not call Normal Arc launch");
+assert(!custom.includes("/api/rh/launch"), "custom page must not call Normal RH launch");
 
 for (const label of [
   "Launch Mode",
@@ -51,12 +53,11 @@ for (const label of [
 
 assert(wizard.includes("LaunchModeStep"), "wizard renders launch mode");
 assert(wizard.includes("DeployStep"), "wizard renders deploy");
-assert(deploy.includes("UI foundation"), "deploy states this is UI only");
-assert(deploy.includes("still not deployed"), "deploy must not claim a live print");
+assert(deploy.includes("On-chain desk") || deploy.includes("Broadcast the Custom Launch"), "deploy is the on-chain desk");
 assert(deploy.includes("DeploymentPreview"), "deploy mounts the preview card");
-assert(deploy.includes("DeploymentProgress"), "deploy mounts mock progress");
-assert(deploy.includes("DeploymentSuccess"), "deploy mounts the mock success desk");
-assert(!deploy.includes("transaction confirmed"), "deploy must not fake a confirmation");
+assert(deploy.includes("DeploymentProgress"), "deploy mounts progress");
+assert(deploy.includes("DeploymentSuccess"), "deploy mounts the success desk");
+assert(!deploy.includes("transaction confirmed"), "deploy must not fake a confirmation copy");
 assert(!deploy.includes("successfully deployed"), "deploy must not claim success");
 
 assert(solana.includes('fetch("/api/solana/launch"'), "Solana Normal Launch API call stays");
@@ -320,7 +321,6 @@ const success = readFileSync(new URL("../src/components/custom-launch/deployment
 const validation = readFileSync(new URL("../src/components/custom-launch/validation-center.tsx", import.meta.url), "utf8");
 const flow = readFileSync(new URL("../src/components/custom-launch/economics-flow.tsx", import.meta.url), "utf8");
 const timeline = readFileSync(new URL("../src/components/custom-launch/automation-timeline.tsx", import.meta.url), "utf8");
-const mockSrc = readFileSync(new URL("../src/lib/custom-launch/mock-deploy.ts", import.meta.url), "utf8");
 const readySrc = readFileSync(new URL("../src/lib/custom-launch/readiness.ts", import.meta.url), "utf8");
 const reviewLib = readFileSync(new URL("../src/lib/custom-launch/review.ts", import.meta.url), "utf8");
 const summary = readFileSync(new URL("../src/components/custom-launch/launch-summary.tsx", import.meta.url), "utf8");
@@ -342,27 +342,22 @@ assert(
   confirm.includes("I understand this configuration will determine the token"),
   "confirmation requires the economics checkbox",
 );
-assert(progress.includes("Initializing Custom Launch"), "progress uses the mock header");
-assert(progress.includes("MOCK_DEPLOY_STAGES"), "progress reads mock stages");
-assert(success.includes("CUSTOM LAUNCH READY"), "success header is set");
-assert(success.includes("MOCK_DEPLOY_DISCLAIMER"), "success stays labeled mock");
+assert(progress.includes("Deploying Custom Launch"), "progress uses the live header");
+assert(progress.includes("DEPLOY_STAGES"), "progress reads deploy stages");
+assert(success.includes("ON-CHAIN DEPLOYMENT CONFIRMED"), "success header is set");
+assert(success.includes("confirmed chain receipt"), "success requires confirmation");
 assert(success.includes("Back to Launchpad"), "success can return to the hub");
 assert(summary.includes("Primary market"), "side summary shows primary market");
 assert(summary.includes("STATUS") || summary.includes("Status"), "side summary shows status");
-assert(mockSrc.includes("MOCK_TOKEN_"), "mock token addresses are labeled");
-assert(mockSrc.includes("MOCK_POOL_"), "mock pool addresses are labeled");
-assert(mockSrc.includes("MOCK-LAUNCH-"), "mock launch ids are labeled");
-assert(mockSrc.includes("MOCK_TX_NOT_BROADCAST"), "mock tx is not a broadcast");
 assert(readySrc.includes("evaluateReadiness"), "readiness evaluator exists");
 assert(reviewLib.includes("reviewSnapshot"), "review snapshot selector exists");
 assert(wizard.includes("DeploymentConfirmation"), "wizard mounts the confirmation modal");
-assert(!confirm.includes("sendTransaction"), "confirmation must not send txs");
-assert(!progress.includes("/api/"), "progress must not call APIs");
-assert(!success.includes("successfully deployed"), "success must not claim a live print");
-assert(!success.includes("transaction confirmed"), "success must not fake confirmation");
+assert(confirm.includes("startDeploy"), "confirmation starts a real deploy");
+assert(progress.includes("does not invent a token address"), "progress does not invent addresses");
+assert(!success.includes("successfully deployed"), "success must not use fake success copy");
+assert(!success.includes("MOCK_TX_NOT_BROADCAST"), "success must not show a mock tx");
 
 const { evaluateReadiness, launchIsReady } = await import("../src/lib/custom-launch/readiness.ts");
-const { createMockDeployResult } = await import("../src/lib/custom-launch/mock-deploy.ts");
 
 const blankDraft = {
   version: 4 as const,
@@ -378,11 +373,6 @@ const blankDraft = {
 };
 assert(!launchIsReady(blankDraft), "empty draft is not ready");
 assert(evaluateReadiness(blankDraft).some((row) => !row.pass), "empty draft has failing checks");
-const mock = createMockDeployResult("DESK", "solana", "sol");
-assert(mock.tokenAddress === "MOCK_TOKEN_DESK", "mock token uses the ticker");
-assert(mock.poolAddress === "MOCK_POOL_DESK_SOL", "mock pool uses the pair");
-assert(mock.launchId.startsWith("MOCK-LAUNCH-"), "mock launch id is labeled");
-assert(mock.transaction === "MOCK_TX_NOT_BROADCAST", "mock tx is not broadcast");
 assert(reviewLib.includes('kind: "Custom Launch"'), "snapshot marks Custom Launch");
 
 console.log(JSON.stringify({ ok: true, customLaunch: "review-deploy" }));

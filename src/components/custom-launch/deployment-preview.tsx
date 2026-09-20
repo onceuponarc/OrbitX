@@ -18,7 +18,7 @@ export function DeploymentPreview() {
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-gold/80">Deployment preview</p>
             <h3 className="mt-1 text-3xl font-semibold tracking-tight">Custom Launch</h3>
-            <p className="mt-1 text-sm text-white/45">Local print preview. This button does not broadcast.</p>
+            <p className="mt-1 text-sm text-white/45">Confirmed configuration. Deploy signs from the OrbitX desk.</p>
           </div>
           <ChainMark label={meta.label} short={meta.short} />
         </div>
@@ -49,7 +49,7 @@ export function DeploymentPreview() {
           {!ready ? (
             <p className="text-sm text-heat">Configuration required — finish the failing Launch Readiness rows.</p>
           ) : (
-            <p className="text-xs text-white/40">Opens a confirmation. Still not a live print.</p>
+            <p className="text-xs text-white/40">Opens a confirmation, then broadcasts if you continue.</p>
           )}
         </div>
       </div>
