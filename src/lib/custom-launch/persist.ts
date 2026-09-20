@@ -292,7 +292,7 @@ export async function updateExecution(
   id: string,
   patch: Partial<Pick<ExecutionRow, "status" | "tx_hash" | "explorer_url" | "error" | "received" | "confirmed_at">>,
 ) {
-  if (patch.status === "completed" && !patch.tx_hash) {
+  if ((patch.status === "completed" || patch.status === "burned") && !patch.tx_hash) {
     throw new Error("Completed executions require a confirmed transaction hash.");
   }
   const { error } = await db().from("custom_launch_executions").update(patch).eq("id", id);
