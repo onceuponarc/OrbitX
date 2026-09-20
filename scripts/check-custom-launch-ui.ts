@@ -130,6 +130,7 @@ assert(!tokenStep.includes(dest), "token UI must not hard-code the protocol wall
 assert(!econ.includes(dest), "economics UI must not hard-code the protocol wallet");
 assert(tokenStep.includes("TokenPreview"), "token step has a live preview");
 assert(tokenStep.includes("SupplyBreakdown"), "token step has supply breakdown");
+assert(tokenStep.includes("MintStandard"), "token step can pick SPL or Token-2022");
 assert(econ.includes("FeeSlider"), "economics has a trading fee control");
 assert(econ.includes("ProtocolDestination"), "economics shows the OrbitX destination");
 assert(econ.includes("FeeAllocationBuilder"), "economics has fee allocation");
@@ -173,15 +174,17 @@ assert(marketsSrc.includes("export type SecondaryMarket"), "SecondaryMarket type
 assert(marketsSrc.includes("export type PoolConfig"), "PoolConfig type exists");
 assert(marketsSrc.includes("export type LiquidityConfig"), "LiquidityConfig type exists");
 assert(marketsSrc.includes('quote: "sol"'), "default primary quote is SOL");
-assert(marketsSrc.includes("orbitxPairedAmount"), "primary quote seed is OrbitX-funded");
+assert(marketsSrc.includes('source: "curve"'), "default primary book is the bonding curve");
+assert(!marketsSrc.includes("orbitxPairedAmount"), "primary quote is not OrbitX-funded");
 assert(primaryStep.includes("QuoteSelect"), "primary step has SOL/USDC cards");
-assert(primaryStep.includes("PoolDesk"), "primary step has pool configuration");
+assert(primaryStep.includes("CurveDesk"), "primary step shows the bonding curve");
+assert(primaryStep.includes("LinkedPools"), "primary step shows linked real DEX books");
 assert(primaryStep.includes("LiquiditySource"), "primary step has liquidity source");
 assert(primaryStep.includes("AdvancedMarket"), "primary step has advanced settings");
 assert(primaryStep.includes("You do not deposit"), "primary step says the creator does not fund LP");
+assert(primaryStep.includes("Neither OrbitX nor the creator"), "primary step says OrbitX does not fund LP");
 assert(!primaryStep.includes("no liquidity is posted and no pair is created"), "primary step no longer says no pair is created");
 assert(marketsSrc.includes("Select a primary market to continue."), "primary validation copy is centralized");
-assert(marketsSrc.includes("Enter a valid liquidity amount."), "liquidity validation copy is centralized");
 assert(marketsSrc.includes("Complete this market or remove it."), "secondary incomplete copy is centralized");
 assert(marketsSrc.includes("That market has already been added."), "duplicate pair copy is centralized");
 assert(secondaryStep.includes("Add market"), "secondary step can add markets");
@@ -192,14 +195,13 @@ assert(!primaryStep.includes("sendTransaction"), "primary market must not send t
 assert(draftSrc.includes("orbitx.custom-launch.v4."), "draft storage is v4");
 
 const poolDesk = readFileSync(new URL("../src/components/custom-launch/pool-desk.tsx", import.meta.url), "utf8");
+assert(poolDesk.includes("neither OrbitX nor the creator deposits quote LP"), "secondary pool desk does not take creator/protocol LP");
 const liqSource = readFileSync(new URL("../src/components/custom-launch/liquidity-source.tsx", import.meta.url), "utf8");
-assert(poolDesk.includes("you do not deposit"), "pool desk says the creator does not deposit quote");
-assert(!poolDesk.includes("OrbitX does not size or seed"), "pool desk no longer says OrbitX does not seed");
-assert(liqSource.includes("creator desk is not charged for quote"), "liquidity source says OrbitX funds quote");
-assert(!liqSource.includes("OrbitX does not provide the creator"), "liquidity source no longer says OrbitX does not provide capital");
-
-const { ORBITX_POOL_SEED } = await import("../src/lib/custom-launch/orbitx-seed.ts");
-assert(ORBITX_POOL_SEED.sol === "0.05" && ORBITX_POOL_SEED.usdc === "50", "OrbitX seed amounts");
+const curveDesk = readFileSync(new URL("../src/components/custom-launch/curve-desk.tsx", import.meta.url), "utf8");
+assert(curveDesk.includes("Neither OrbitX nor the creator deposits LP"), "curve desk says nobody deposits LP");
+assert(liqSource.includes("OrbitX does not seed LP"), "liquidity source says OrbitX does not seed LP");
+assert(liqSource.includes("creator desk is not asked to deposit quote"), "liquidity source says the creator does not deposit quote");
+assert(!liqSource.includes("OrbitX seeds the launch pool"), "liquidity source no longer says OrbitX seeds the pool");
 
 const {
   availableSecondaryQuotes,
@@ -214,8 +216,9 @@ const {
 
 const markets = createMarketsConfig();
 assert(markets.primary.quote === "sol", "default primary market is SOL");
-assert(markets.primary.pool.pairedAmount === "0.05", "default SOL seed is OrbitX inventory");
-assert(primaryMarketComplete(markets, "1000000000"), "default SOL pool is complete");
+assert(markets.primary.liquidity.source === "curve", "default primary source is the bonding curve");
+assert(markets.primary.pool.pairedAmount === "0", "default quote LP is zero");
+assert(primaryMarketComplete(markets, "1000000000"), "default SOL curve is complete");
 assert(!primaryMarketError(markets, "1000000000"), "default primary has no error");
 assert(
   primaryMarketError({ ...markets, access: { ...markets.access, primaryEnabled: false } }, "1000000000") ===
@@ -226,8 +229,8 @@ assert(
   primaryMarketError(
     { ...markets, primary: { ...markets.primary, pool: { tokenAllocation: "0", pairedAmount: "0" } } },
     "1000000000",
-  ) === "Enter a valid liquidity amount.",
-  "empty pool uses the liquidity copy",
+  ) === undefined,
+  "curve does not require a quote deposit",
 );
 const usdcPool = estimatePool({ tokenAllocation: "200000000", pairedAmount: "5000" }, "usdc", "1000000000");
 assert(usdcPool.valid && usdcPool.pairedUsd === 5000, "USDC pool estimate uses $1 mark");
@@ -241,7 +244,7 @@ assert(!availableSecondaryQuotes(withBtc).includes("btc"), "added quote cannot b
 const duplicate = { ...markets, secondary: [createSecondaryMarket("usdc"), createSecondaryMarket("usdc")] };
 assert(!secondaryMarketsComplete(duplicate), "duplicate secondary quotes fail validation");
 const incomplete = { ...markets, secondary: [{ ...createSecondaryMarket("eth"), pool: { tokenAllocation: "", pairedAmount: "" } }] };
-assert(!secondaryMarketsComplete(incomplete), "empty secondary pool fails validation");
+assert(secondaryMarketsComplete(incomplete), "recorded secondary does not require LP deposits");
 const usdcPrimary = { ...markets, primary: { ...markets.primary, quote: "usdc" as const } };
 assert(tickerConflicts(usdcPrimary, "USDC"), "primary USDC cannot be added again");
 assert(

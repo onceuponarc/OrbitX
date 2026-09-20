@@ -66,6 +66,14 @@ export const HUB_ABI = [
   ], outputs: [{ type: "uint256" }] },
   { type: "function", name: "token", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
   { type: "function", name: "creator", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "armCurve", stateMutability: "nonpayable", inputs: [{ name: "creator_", type: "address" }], outputs: [] },
+  { type: "function", name: "curveFill", stateMutability: "nonpayable", inputs: [
+    { name: "trader", type: "address" }, { name: "quoteIn", type: "bool" },
+    { name: "amountIn", type: "uint256" }, { name: "amountOut", type: "uint256" },
+  ], outputs: [] },
+  { type: "function", name: "graduatePool", stateMutability: "nonpayable", inputs: [
+    { name: "tokenAmt", type: "uint256" }, { name: "quoteAmt", type: "uint256" }, { name: "minUnits", type: "uint256" },
+  ], outputs: [{ name: "units", type: "uint256" }] },
 ] as const;
 
 export const ROUTER_ABI = [

@@ -61,7 +61,7 @@ export const CUSTOM_CHAIN_META: Record<PrintableChain, CustomChainMeta> = {
     label: "Solana",
     longLabel: "Solana",
     short: "SOL",
-    venue: "pump.fun · Jupiter",
+    venue: "bonding curve · PumpSwap",
     quote: "SOL",
     native: "SOL",
     decimals: 9,

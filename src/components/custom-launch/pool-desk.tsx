@@ -40,8 +40,8 @@ export function PoolDesk({
     <div>
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/45">Pool configuration</p>
       <p className="mt-1 text-sm text-white/50">
-        Size the token side. OrbitX posts the quote and opens the public book at launch — you do not deposit
-        SOL or USDC.
+        Size a recorded secondary book if you want it on the tape. The primary launch is a bonding curve;
+        neither OrbitX nor the creator deposits quote LP.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <Field
@@ -57,7 +57,7 @@ export function PoolDesk({
           />
         </Field>
         <Field
-          label={`OrbitX ${quoteLabel} seed`}
+          label={`${quoteLabel} (recorded)`}
           error={estimate.error && !Number(pool.pairedAmount) ? estimate.error : undefined}
           hint={quoteLocked ? "Protocol inventory. Not taken from your desk." : undefined}
         >

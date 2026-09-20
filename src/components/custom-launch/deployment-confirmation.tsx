@@ -34,7 +34,7 @@ export function DeploymentConfirmation() {
           <Row label="Token" value={`${snap.token.name} · ${snap.token.symbol}`} />
           <Row label="Pair" value={snap.market.pair} />
           <Row label="Trading fee" value={snap.economics.tradingFee} />
-          <Row label="Initial liquidity" value={snap.market.liquidity} />
+          <Row label="Launch book" value="Buyer-funded bonding curve" />
           <Row label="Automation rules" value={String(snap.automation.total)} />
           <div className="sm:col-span-2">
             <Row label="Fee routing" value={snap.economics.routing} />

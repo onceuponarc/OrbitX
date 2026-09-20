@@ -23,6 +23,8 @@ export type DeployResult = {
   factoryAddress: string | null;
   txHash: string;
   explorer: string | null;
+  vaultAddress?: string | null;
+  mintProgram?: string | null;
 };
 
 export type ExecuteResult = {

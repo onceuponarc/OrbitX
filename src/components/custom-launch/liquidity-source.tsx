@@ -12,10 +12,10 @@ export function LiquiditySource({
 }) {
   return (
     <div>
-      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/45">Liquidity source</p>
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/45">Launch book</p>
       <p className="mt-1 text-sm text-white/50">
-        OrbitX seeds the launch pool. Solana opens a PumpSwap book; Arc uses a Uniswap-style AMM. The
-        creator desk is not charged for quote liquidity.
+        Custom Launch always opens a bonding curve. Canonical funded DEX pools are linked for the quote.
+        The creator desk is not asked to deposit quote, and OrbitX does not seed LP.
       </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {LIQUIDITY_SOURCES.map((id) => {

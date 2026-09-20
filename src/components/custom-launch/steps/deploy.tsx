@@ -46,10 +46,10 @@ export function DeployStep() {
         <div className="mt-5 rounded-2xl border border-gold/20 bg-gold/5 px-4 py-4">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-gold">On-chain desk</p>
           <p className="mt-2 text-sm leading-relaxed text-white/70">
-            Confirming this print creates the token and, where the chain supports a Custom Launch pool,
-            an OrbitX-seeded public book (PumpSwap on Solana, Uniswap-style AMM on Arc), fee router, and
-            strategy vaults. You do not deposit quote liquidity. Remove-liquidity is not available. Success
-            requires a confirmed transaction hash.
+            Confirming this print mints the token into a custom bonding curve. Real quote starts at zero.
+            Buyers fund the vault. Canonical funded DEX books are linked automatically. Graduation later
+            opens this token&apos;s pool from those buyer funds. You do not deposit quote liquidity. Remove-liquidity
+            is not available. Success requires a confirmed transaction hash.
           </p>
         </div>
 

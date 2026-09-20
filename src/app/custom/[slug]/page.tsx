@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   try {
     const launch = await loadLaunchBySlug(slug);
-    if (!launch || (launch.status !== "live" && launch.status !== "paused")) return { title: "Custom Launch" };
+    if (!launch || (launch.status !== "live" && launch.status !== "paused" && launch.status !== "graduated")) return { title: "Custom Launch" };
     return { title: `${launch.token_name} ($${launch.token_symbol})` };
   } catch {
     return { title: "Custom Launch" };
@@ -35,7 +35,7 @@ const PUBLIC_ACTIONS: Record<string, string> = {
 export default async function CustomTokenPage({ params }: Props) {
   const { slug } = await params;
   const launch = await loadLaunchBySlug(slug);
-  if (!launch || (launch.status !== "live" && launch.status !== "paused")) notFound();
+  if (!launch || (launch.status !== "live" && launch.status !== "paused" && launch.status !== "graduated")) notFound();
   const view = await publicLaunchView(launch);
   const activity = await loadPublicExecutions(launch.id);
   const { user } = await getSessionUser();
@@ -65,7 +65,8 @@ export default async function CustomTokenPage({ params }: Props) {
           ) : null}
         </div>
         <dl className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Meta label="Status" value={view.status} />
+          <Meta label="Curve" value={view.curveStatus === "graduated" ? "Graduated" : view.curveStatus === "curve" ? "Bonding curve" : view.status} />
+          <Meta label="Mint" value={view.mintProgram === "spl" ? "SPL" : view.mintProgram === "token2022" ? "Token-2022" : view.chain === "solana" ? "Solana" : "ERC-20"} />
           <Meta label="Trading fee" value={formatBps(view.tradeFeeBps)} />
           <Meta label="Supply" value={view.supply} />
           <Meta label="Burn events" value={String(burns.length)} />
@@ -73,7 +74,8 @@ export default async function CustomTokenPage({ params }: Props) {
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           <AddressRow label="Token" value={view.tokenAddress ?? "—"} />
           <AddressRow label="Pool" value={view.poolAddress ?? "Not created on this chain"} />
-          {view.chain === "solana" && view.poolAddress && view.tokenAddress ? (
+          <AddressRow label="Curve vault" value={view.vaultAddress ?? "—"} />
+          {view.chain === "solana" && view.curveStatus === "graduated" && view.poolAddress && view.tokenAddress ? (
             <>
               <AddressRow
                 label="DexScreener"
@@ -93,17 +95,25 @@ export default async function CustomTokenPage({ params }: Props) {
       <section className="ox-console rounded-[1.5rem] p-6">
         <h2 className="text-xl font-semibold">Markets</h2>
         <p className="mt-1 text-sm text-white/45">
-          Primary is created at launch from OrbitX inventory (PumpSwap on Solana). Secondary books are recorded, not deployed.
+          Primary is a custom bonding curve. Real funded DEX books for the quote are linked automatically.
+          This token&apos;s own pool opens at graduation from buyer funds — OrbitX and the creator do not deposit LP.
         </p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {view.markets.map((market, index) => (
             <li key={`${market.role}-${market.quote}-${index}`} className="rounded-2xl border border-white/10 px-4 py-3 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold capitalize">{market.role}</span>
+                <span className="font-semibold capitalize">{market.kind === "canonical" ? "Linked DEX" : market.kind === "curve" ? "Bonding curve" : market.role}</span>
                 <span className="font-mono text-xs text-white/45">{market.status}</span>
               </div>
-              <p className="mt-1 text-white/70">${view.tokenSymbol} / {market.quote.toUpperCase()}</p>
-              {market.poolAddress ? (
+              <p className="mt-1 text-white/70">
+                {market.label || `$${view.tokenSymbol} / ${market.quote.toUpperCase()}`}
+                {market.dex ? ` · ${market.dex}` : ""}
+              </p>
+              {market.url ? (
+                <a href={market.url} target="_blank" rel="noreferrer" className="mt-1 block break-all font-mono text-[11px] text-gold/80">
+                  {market.poolAddress}
+                </a>
+              ) : market.poolAddress ? (
                 <p className="mt-1 break-all font-mono text-[11px] text-white/40">{market.poolAddress}</p>
               ) : (
                 <p className="mt-1 text-xs text-white/40">No pool address on this chain.</p>

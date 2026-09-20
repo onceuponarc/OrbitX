@@ -5,6 +5,7 @@ import type { CustomLaunchDraft } from "@/lib/custom-launch/schema";
 
 export const SOLANA_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 export const SOLANA_WSOL = "So11111111111111111111111111111111111111112";
+export const CURVE_DEST = "curve";
 export const POOL_DEST = "pool";
 export const FEE_ROUTER_DEST = "fee-router";
 
@@ -18,6 +19,7 @@ export const VAULT_DESTS = [
   "charity",
   "treasury",
   "community",
+  "curve",
 ] as const;
 
 export type VaultDest = (typeof VAULT_DESTS)[number];
@@ -32,6 +34,10 @@ export function customLaunchVaultKeypair(launchId: string, dest: string): Keypai
     .update(dest)
     .digest();
   return Keypair.fromSeed(seed);
+}
+
+export function customLaunchCurveKeypair(launchId: string): Keypair {
+  return customLaunchVaultKeypair(launchId, CURVE_DEST);
 }
 
 export function customLaunchPoolKeypair(launchId: string): Keypair {

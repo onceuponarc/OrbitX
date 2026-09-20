@@ -14,7 +14,6 @@ import { rhChain } from "@/lib/wallets/rh-client";
 import { loadArcNetwork } from "@/lib/arc/env";
 import { arcChain } from "@/lib/arc/client";
 import { ERC20_ABI } from "@/lib/custom-launch/onchain/abi";
-import { orbitxPairedAmount } from "@/lib/custom-launch/orbitx-seed";
 
 const UNISWAP_V2_FACTORY_ABI = [
   {
@@ -69,13 +68,6 @@ export function evmSeederKey(): Hex | null {
   if (!raw) return null;
   const hex = (raw.startsWith("0x") ? raw : `0x${raw}`) as Hex;
   return /^0x[0-9a-fA-F]{64}$/.test(hex) ? hex : null;
-}
-
-export function orbitxEvmQuoteSeedUi(quote: "sol" | "usdc"): string {
-  const envName = quote === "usdc" ? "CUSTOM_LAUNCH_USDC_SEED" : "CUSTOM_LAUNCH_EVM_QUOTE_SEED";
-  const raw = process.env[envName]?.trim();
-  if (raw && Number(raw) > 0) return raw;
-  return orbitxPairedAmount("usdc");
 }
 
 export function uniswapV2Addresses(chain: "arc" | "robinhood"): { factory: Address; router: Address } | null {

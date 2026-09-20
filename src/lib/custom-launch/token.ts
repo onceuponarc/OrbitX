@@ -3,11 +3,15 @@ export type TokenLink = {
   url: string;
 };
 
+export const MINT_STANDARDS = ["spl", "token2022"] as const;
+export type MintStandard = (typeof MINT_STANDARDS)[number];
+
 export type TokenConfig = {
   name: string;
   symbol: string;
   supply: string;
   decimals: number;
+  standard: MintStandard;
   description: string;
   imageUrl: string;
   bannerUrl: string;
@@ -30,6 +34,7 @@ export type TokenFieldError = {
   telegram?: string;
   discord?: string;
   extraLinks?: string;
+  standard?: string;
 };
 
 export function createTokenConfig(decimals: number): TokenConfig {
@@ -38,6 +43,7 @@ export function createTokenConfig(decimals: number): TokenConfig {
     symbol: "",
     supply: "1000000000",
     decimals,
+    standard: "token2022",
     description: "",
     imageUrl: "",
     bannerUrl: "",
@@ -109,6 +115,9 @@ export function validateTokenConfig(token: TokenConfig): TokenFieldError {
   if (!Number.isInteger(token.decimals) || token.decimals < 0 || token.decimals > 18) {
     errors.decimals = "Decimals must be an integer from 0 to 18.";
   }
+  if (token.standard !== "spl" && token.standard !== "token2022") {
+    errors.decimals = errors.decimals ?? "Choose SPL or Token-2022.";
+  }
 
   if (!token.imageUrl.trim()) errors.imageUrl = "Add a token image URL or local preview.";
   else if (!isImageValue(token.imageUrl)) errors.imageUrl = "Image must be an http(s) or data URL.";
@@ -130,4 +139,8 @@ export function validateTokenConfig(token: TokenConfig): TokenFieldError {
 
 export function tokenConfigComplete(token: TokenConfig) {
   return Object.keys(validateTokenConfig(token)).length === 0;
+}
+
+export function isMintStandard(value: unknown): value is MintStandard {
+  return value === "spl" || value === "token2022";
 }

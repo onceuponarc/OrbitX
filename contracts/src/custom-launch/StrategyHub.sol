@@ -99,6 +99,47 @@ contract StrategyHub {
         }
     }
 
+    /// @notice Hold the full supply on the hub for a buyer-funded bonding curve. No quote LP.
+    function armCurve(address creator_) external {
+        if (msg.sender != factory) revert LaunchTypes.Unauthorized();
+        if (creator_ != creator) revert LaunchTypes.Unauthorized();
+        uint256 supply = token.balanceOf(address(this));
+        if (supply == 0) revert LaunchTypes.InsufficientBalance();
+        balances[LaunchTypes.DEST_LIQUIDITY][address(token)] += supply;
+    }
+
+    /// @notice Move curve inventory against a buyer. Amounts are computed off-chain (Chapter math).
+    function curveFill(address trader, bool quoteIn, uint256 amountIn, uint256 amountOut) external lock onlyCreator {
+        if (trader == address(0)) revert LaunchTypes.ZeroAddress();
+        if (amountIn == 0 || amountOut == 0) revert LaunchTypes.InsufficientBalance();
+        if (quoteIn) {
+            SafeERC20.pull(quote, trader, address(this), amountIn);
+            balances[LaunchTypes.DEST_LIQUIDITY][address(quote)] += amountIn;
+            _debit(LaunchTypes.DEST_LIQUIDITY, address(token), amountOut);
+            SafeERC20.push(IERC20(address(token)), trader, amountOut);
+        } else {
+            SafeERC20.pull(IERC20(address(token)), trader, address(this), amountIn);
+            balances[LaunchTypes.DEST_LIQUIDITY][address(token)] += amountIn;
+            _debit(LaunchTypes.DEST_LIQUIDITY, address(quote), amountOut);
+            SafeERC20.push(quote, trader, amountOut);
+        }
+        emit Executed(bytes32(0), quoteIn ? uint8(0) : uint8(1), address(quote), amountIn, amountOut);
+    }
+
+    /// @notice Sweep buyer-funded curve inventory into the add-only pool. No remove.
+    function graduatePool(uint256 tokenAmt, uint256 quoteAmt, uint256 minUnits) external lock onlyCreator returns (uint256 units) {
+        if (tokenAmt == 0 || quoteAmt == 0) revert LaunchTypes.InsufficientBalance();
+        if (pool.reserveQuote() != 0) revert LaunchTypes.DestinationLocked();
+        _debit(LaunchTypes.DEST_LIQUIDITY, address(token), tokenAmt);
+        _debit(LaunchTypes.DEST_LIQUIDITY, address(quote), quoteAmt);
+        token.approve(address(pool), tokenAmt);
+        quote.approve(address(pool), quoteAmt);
+        units = pool.addLiquidity(tokenAmt, quoteAmt, minUnits);
+        token.approve(address(pool), 0);
+        quote.approve(address(pool), 0);
+        emit Executed(keccak256("graduate"), LaunchTypes.ACTION_ADD_LIQUIDITY, address(quote), quoteAmt, units);
+    }
+
     function donate(uint8 dest, address asset, uint256 amount) external onlyCreator {
         if (dest == LaunchTypes.DEST_PROTOCOL || dest >= LaunchTypes.DEST_COUNT) revert LaunchTypes.BadAction();
         if (amount == 0) revert LaunchTypes.InsufficientBalance();

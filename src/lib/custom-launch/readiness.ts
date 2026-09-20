@@ -108,9 +108,11 @@ export function evaluateReadiness(draft: CustomLaunchDraft): ReadinessCheck[] {
     },
     {
       id: "liquidity",
-      label: "Liquidity configuration complete",
+      label: "Bonding curve configured",
       pass: primaryOk,
-      detail: primaryOk ? "Primary pool amounts are set." : "Enter a valid liquidity amount.",
+      detail: primaryOk
+        ? "Custom bonding curve opens at launch. Neither OrbitX nor the creator deposits LP."
+        : "Select a primary market to continue.",
       step: "primary",
     },
     {

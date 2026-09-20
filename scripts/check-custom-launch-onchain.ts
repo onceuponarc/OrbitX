@@ -21,8 +21,11 @@ const types = [
   "../src/lib/custom-launch/onchain/solana.ts",
   "../src/lib/custom-launch/onchain/solana-pool.ts",
   "../src/lib/custom-launch/onchain/solana-pumpswap.ts",
+  "../src/lib/custom-launch/onchain/solana-curve.ts",
   "../src/lib/custom-launch/onchain/solana-keys.ts",
   "../src/lib/custom-launch/onchain/evm-uniswap.ts",
+  "../src/lib/custom-launch/curve.ts",
+  "../src/lib/custom-launch/linked-pools.ts",
   "../src/lib/custom-launch/onchain/pool-math.ts",
   "../src/lib/custom-launch/onchain/actions.ts",
   "../src/lib/custom-launch/execute.ts",
@@ -35,12 +38,14 @@ const types = [
   "../src/app/api/custom-launch/execute/route.ts",
   "../src/app/api/custom-launch/automation/route.ts",
   "../src/app/api/custom-launch/capability/route.ts",
+  "../src/app/api/custom-launch/trade/route.ts",
   "../src/app/api/solana/launch/route.ts",
   "../src/app/api/arc/launch/route.ts",
   "../src/app/api/rh/launch/route.ts",
   "../src/components/custom-launch/dev-desk.tsx",
   "../src/components/custom-launch/draft-provider.tsx",
   "../supabase/migrations/0013_custom_launch.sql",
+  "../supabase/migrations/0015_custom_launch_curve.sql",
 ];
 
 for (const file of types) {
@@ -67,12 +72,17 @@ assert(typesSol.includes("NoRemoveLiquidity"), "remove-liquidity is an explicit 
 const factory = read("../contracts/src/custom-launch/CustomLaunchFactory.sol");
 assert(factory.includes("_validateSplit"), "factory validates splits");
 assert(factory.includes("PROTOCOL_SHARE_BPS"), "factory locks protocol share");
+assert(factory.includes("armCurve"), "factory can open a curve without quote LP");
+assert(factory.includes("p.quoteLiquidity > 0"), "factory only pulls quote when explicitly seeded after graduation");
 
 const hub = read("../contracts/src/custom-launch/StrategyHub.sol");
 assert(hub.includes("onlyCreator"), "hub is creator-gated");
 assert(hub.includes("DuplicateExecution"), "hub rejects duplicate exec ids");
 assert(hub.includes("recipients[i] == creator"), "holders exclude creator");
 assert(hub.includes("dest != LaunchTypes.DEST_CREATOR && to == creator"), "strategy sends cannot hit creator");
+assert(hub.includes("function armCurve"), "hub can arm a buyer-funded curve");
+assert(hub.includes("function curveFill"), "hub can fill the curve from buyers");
+assert(hub.includes("function graduatePool"), "hub can graduate buyer funds into the add-only pool");
 assert(!hub.includes("function withdraw"), "hub has no withdraw");
 
 const token = read("../contracts/src/custom-launch/CustomLaunchToken.sol");
@@ -84,16 +94,21 @@ assert(solana.includes("feeRouter: true"), "Solana adapter exposes fee harvest")
 assert(solana.includes("addLiquidity: true"), "Solana adapter can add liquidity");
 assert(solana.includes("protocol.publicKey"), "Solana mint/withdraw authority is protocol");
 assert(solana.includes("customLaunchVaultKeypair"), "Solana vaults are protocol-derived");
+assert(solana.includes("customLaunchCurveKeypair"), "Solana curve vault is protocol-derived");
+assert(solana.includes("TOKEN_PROGRAM_ID"), "Solana Custom Launch supports SPL");
+assert(solana.includes("TOKEN_2022_PROGRAM_ID"), "Solana Custom Launch supports Token-2022");
 assert(!solana.includes("exportDeskSecret"), "strategy vaults must not use exportable desk secrets");
 assert(solana.includes("Remove liquidity is not a Custom Launch action"), "Solana adapter blocks remove-liquidity");
-assert(solana.includes("seedSolanaPumpSwapPool"), "Solana deploy opens a PumpSwap book");
-assert(solana.includes("preflightOrbitxPumpSwap"), "Solana deploy preflights OrbitX quote, not the desk");
+assert(!solana.includes("seedSolanaPumpSwapPool"), "Solana deploy does not seed PumpSwap from OrbitX");
+assert(!solana.includes("preflightOrbitxPumpSwap"), "Solana deploy does not preflight protocol quote LP");
 assert(!solana.includes("preflightSolanaPoolSeed"), "Solana deploy does not bill the desk for quote liquidity");
 assert(!solana.includes("seedSolanaCustomLaunchPool"), "Solana deploy does not seed the homemade CPMM as the public book");
+assert(solana.includes("Neither OrbitX nor the creator deposits quote LP"), "Solana note forbids protocol/creator LP");
 
 const pumpswap = read("../src/lib/custom-launch/onchain/solana-pumpswap.ts");
-assert(pumpswap.includes("createPoolInstructions"), "PumpSwap create is the public book");
-assert(pumpswap.includes("The creator is not charged for quote liquidity"), "PumpSwap preflight refuses to bill the creator");
+assert(pumpswap.includes("createPoolInstructions"), "PumpSwap create is available at graduation");
+assert(pumpswap.includes("graduateSolanaPumpSwapFromVault"), "PumpSwap opens from the buyer-funded vault");
+assert(pumpswap.includes("OrbitX and the creator do not seed LP"), "PumpSwap graduation refuses protocol/creator quote");
 assert(!pumpswap.includes('from("stories")'), "Custom Launch PumpSwap does not write stories");
 assert(!pumpswap.includes("withdrawInstructions"), "Custom Launch PumpSwap never withdraws LP");
 assert(!pumpswap.includes("pumpswap-pool"), "Custom Launch PumpSwap is isolated from Normal Launch graduation");
@@ -114,9 +129,9 @@ const evm = read("../src/lib/custom-launch/onchain/evm.ts");
 assert(evm.includes("waitForTransactionReceipt"), "EVM waits for confirmation");
 assert(evm.includes("receipt.status !== \"success\""), "EVM rejects reverted receipts");
 assert(evm.includes("harvestAll"), "EVM can harvest the fee router");
-assert(evm.includes("CUSTOM_LAUNCH_EVM_SEEDER_KEY") || evm.includes("evmSeederClients"), "EVM createLaunch is seeder-funded");
-assert(evm.includes("The creator is not asked to deposit quote"), "EVM refuses to bill the creator for quote");
-assert(evm.includes("seedUniswapV2Pool"), "EVM attempts Uniswap V2 when the seeder holds both sides");
+assert(evm.includes("quoteLiquidity: 0n"), "EVM createLaunch does not seed quote LP");
+assert(evm.includes("Neither OrbitX nor the creator deposits quote LP"), "EVM adapter forbids protocol/creator LP");
+assert(!evm.includes("OrbitX seeds Custom Launch liquidity"), "EVM adapter no longer requires a seeder quote");
 
 const evmUni = read("../src/lib/custom-launch/onchain/evm-uniswap.ts");
 assert(evmUni.includes("addLiquidity"), "Uniswap helper can add liquidity");
@@ -136,6 +151,10 @@ assert(persist.includes("Completed executions require a confirmed transaction ha
 assert(persist.includes("custom_launches"), "uses custom_launches not stories");
 assert(persist.includes('role: "secondary"'), "secondary markets are persisted");
 assert(persist.includes("insertDistributions"), "holder distributions are written");
+assert(persist.includes("linkedCanonicalPools"), "canonical funded DEX books are linked");
+assert(persist.includes('kind: "canonical"'), "linked books are marked canonical");
+assert(persist.includes("curve_status"), "curve state is persisted on custom_launches");
+assert(!persist.includes('from("stories")'), "Custom Launch persist does not write stories");
 
 const sync = read("../src/lib/custom-launch/sync.ts");
 assert(sync.includes("readHubBalance") || sync.includes("getTokenAccountBalance"), "vault sync reads chain balances");
@@ -159,6 +178,12 @@ assert(sql.includes("trade_fee_bps <= 500"), "DB fee cap is 5%");
 assert(sql.includes("custom_launch_rules_no_remove_liq"), "rules reject remove_liquidity");
 assert(sql.includes("custom_launch_executions_no_remove_liq"), "executions reject remove_liquidity");
 assert(sql.includes("status=completed only after a confirmed chain transaction"), "SQL comment forbids intent-as-success");
+
+const sql15 = read("../supabase/migrations/0015_custom_launch_curve.sql");
+assert(sql15.includes("real_quote_raw"), "curve real quote is persisted");
+assert(sql15.includes("Never seeded by OrbitX or the creator"), "migration documents buyer-funded quote");
+assert(sql15.includes("kind in ('curve', 'canonical', 'graduated', 'recorded')"), "markets store curve and canonical books");
+assert(!sql15.includes("insert into public.stories"), "curve migration does not write stories");
 
 const desk = read("../src/components/custom-launch/dev-desk.tsx");
 assert(desk.includes("Claim creator fees"), "desk has creator claim");
@@ -409,4 +434,30 @@ assert(
   "pool authority is not a strategy vault",
 );
 
-console.log(JSON.stringify({ ok: true, customLaunch: "onchain-phase-2" }));
+const curveSrc = read("../src/lib/custom-launch/curve.ts");
+assert(curveSrc.includes("realQuoteRaw: 0n"), "curve real quote starts at zero");
+assert(curveSrc.includes("quoteChapterBuy"), "Custom Launch curve reuses Chapter buy math");
+assert(curveSrc.includes("graduateTargetRaw"), "curve has a graduation target");
+
+const { quoteChapterBuy } = await import("../src/lib/solana/curve.ts");
+const virtualQuote = 30_000_000_000n;
+const virtualBase = 1_073_000_000n * 10n ** 9n;
+const supply = 1_000_000_000n * 10n ** 9n;
+const buy = quoteChapterBuy(
+  {
+    virtualQuote,
+    virtualBase,
+    realQuote: 0n,
+    realBase: supply,
+    lpReserved: 200_000_000n * 10n ** 9n,
+    k: virtualQuote * virtualBase,
+    graduateTarget: 2_000_000_000n,
+  },
+  1_000_000_000n,
+  300,
+);
+assert(buy.baseOut > 0n, "a buy against virtual reserves returns tokens");
+assert(buy.nextRealQuote > 0n, "buyer quote is credited to the curve");
+assert(!buy.wouldEatLp, "first small buy does not consume reserved LP");
+
+console.log(JSON.stringify({ ok: true, customLaunch: "bonding-curve" }));

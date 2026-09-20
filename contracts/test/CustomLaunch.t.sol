@@ -72,6 +72,50 @@ contract CustomLaunchTest {
         require(token.balanceOf(address(hub)) == 0, "hub leftover");
     }
 
+    function testCreateLaunchOpensCurveWithoutQuote() public {
+        uint256 seederUsdc = usdc.balanceOf(address(this));
+        uint256 creatorUsdc = usdc.balanceOf(creator);
+        LaunchTypes.CreateParams memory p = _params();
+        p.name = "Curve";
+        p.symbol = "CRV";
+        p.tokenLiquidity = 0;
+        p.quoteLiquidity = 0;
+        p.creator = address(0xA070);
+        (, address hubAddr, address tokenAddr, address poolAddr,) = factory.createLaunch(p);
+        CustomLaunchPool curvePool = CustomLaunchPool(poolAddr);
+        CustomLaunchToken curveToken = CustomLaunchToken(tokenAddr);
+        StrategyHub curveHub = StrategyHub(hubAddr);
+        require(curvePool.reserveQuote() == 0, "no quote lp");
+        require(curvePool.reserveToken() == 0, "no token lp");
+        require(curveToken.balanceOf(hubAddr) == p.supply, "hub holds supply");
+        require(curveToken.balanceOf(p.creator) == 0, "creator has no airdrop");
+        require(usdc.balanceOf(address(this)) == seederUsdc, "no protocol quote spent");
+        require(usdc.balanceOf(creator) == creatorUsdc, "creator quote untouched");
+        require(curveHub.balances(LaunchTypes.DEST_LIQUIDITY, address(curveToken)) == p.supply, "curve armed");
+    }
+
+    function testCurveFillThenGraduateFromBuyerFunds() public {
+        LaunchTypes.CreateParams memory p = _params();
+        p.name = "Grad";
+        p.symbol = "GRD";
+        p.tokenLiquidity = 0;
+        p.quoteLiquidity = 0;
+        (, address hubAddr, address tokenAddr, address poolAddr,) = factory.createLaunch(p);
+        StrategyHub curveHub = StrategyHub(hubAddr);
+        CustomLaunchToken curveToken = CustomLaunchToken(tokenAddr);
+        CustomLaunchPool curvePool = CustomLaunchPool(poolAddr);
+        uint256 buyQuote = 1_000e6;
+        uint256 buyTokens = 10_000_000e18;
+        usdc.approve(hubAddr, buyQuote);
+        curveHub.curveFill(address(this), true, buyQuote, buyTokens);
+        require(curveToken.balanceOf(address(this)) == buyTokens, "buyer received");
+        require(usdc.balanceOf(hubAddr) == buyQuote, "buyer quote in vault");
+        uint256 lpTokens = 200_000_000e18;
+        curveHub.graduatePool(lpTokens, buyQuote, 1);
+        require(curvePool.reserveQuote() == buyQuote, "graduated quote is buyer funds");
+        require(curvePool.reserveToken() == lpTokens, "graduated token reserve");
+    }
+
     function testSeederPaysQuoteCreatorDoesNot() public {
         QuoteSeeder seeder = new QuoteSeeder();
         address author = address(0xA070);

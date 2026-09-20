@@ -9,6 +9,7 @@ import {
 } from "@solana/web3.js";
 import {
   TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstruction,
   createBurnInstruction,
   createInitializeMint2Instruction,
@@ -17,10 +18,10 @@ import {
   createSetAuthorityInstruction,
   createTransferCheckedInstruction,
   AuthorityType,
-  getMint,
   getMintLen,
   ExtensionType,
   getAssociatedTokenAddressSync,
+  MINT_SIZE,
 } from "@solana/spl-token";
 import { protocolKeypair } from "@/lib/solana/keys";
 import { solanaConnection } from "@/lib/solana/connection";
@@ -29,6 +30,7 @@ import { deskSolanaKey } from "@/lib/wallets/sign-desk";
 import { sendSignedTx, waitForTx } from "@/lib/solana/partial-tx";
 import { createMetadataV3Instruction } from "@/lib/solana/token-metadata";
 import { getJupiterQuote, getJupiterSwapTx, WSOL_MINT } from "@/lib/solana/jupiter";
+import { inspectMint } from "@/lib/solana/mint";
 import type { CustomLaunchAdapter, AdapterContext, DeployResult, ExecuteResult } from "@/lib/custom-launch/onchain/types";
 import { assertAllowedAction, assertFeeSplits, assertTradingFeeBps, protocolDestinationForChain } from "@/lib/custom-launch/onchain/validate";
 import { resolvedFeeAllocations } from "@/lib/custom-launch/fees";
@@ -36,8 +38,8 @@ import { parseSupply } from "@/lib/custom-launch/token";
 import type { CustomLaunchDraft } from "@/lib/custom-launch/schema";
 import { SOLANA } from "@onceupon/config/solana";
 import { ORBITX_PROTOCOL } from "@/lib/custom-launch/protocol";
-import { splitArray } from "@/lib/custom-launch/onchain/splits";
 import {
+  customLaunchCurveKeypair,
   customLaunchFeeRouterKeypair,
   customLaunchVaultKeypair,
   quoteMintForDraft,
@@ -51,17 +53,19 @@ import {
 } from "@/lib/custom-launch/onchain/solana-pool";
 import {
   addSolanaPumpSwapLiquidity,
+  graduateSolanaPumpSwapFromVault,
   isCustomLaunchPumpSwapPool,
-  preflightOrbitxPumpSwap,
-  seedSolanaPumpSwapPool,
 } from "@/lib/custom-launch/onchain/solana-pumpswap";
+
+const DESK_MINT_RENT_LAMPORTS = 25_000_000n;
+const CURVE_RENT_LAMPORTS = 8_000_000n;
 
 function solanaNote() {
   return [
-    "Solana Custom Launch mints a Token-2022 and opens a PumpSwap book at launch.",
-    "OrbitX funds the quote side. The creator desk does not deposit SOL or USDC into the pool.",
-    "LP tokens stay on the protocol key — remove / withdraw / drain is not available.",
-    "Transfer-fee harvest still routes to the locked OrbitX destination and strategy vaults.",
+    "Solana Custom Launch mints SPL or Token-2022 into a protocol-derived bonding-curve vault.",
+    "Neither OrbitX nor the creator deposits quote LP. Buyers fund the curve; real quote starts at 0.",
+    "Canonical funded SOL/USDC books are linked at launch. Graduation opens PumpSwap from the vault only.",
+    "Remove / withdraw / drain is not available.",
     `Cluster: ${SOLANA.cluster}.`,
   ].join(" ");
 }
@@ -86,8 +90,9 @@ export function solanaAdapter(): CustomLaunchAdapter {
       return deploySolanaToken(draft, ctx);
     },
     async createPool(draft, ctx) {
-      if (!ctx.tokenAddress) throw new Error("Token mint is required before the Custom Launch pool can be seeded.");
-      return seedSolanaPumpSwapPool(draft, ctx, new PublicKey(ctx.tokenAddress));
+      if (!ctx.tokenAddress) throw new Error("Token mint is required before the Custom Launch curve can graduate.");
+      if (!ctx.launchId) throw new Error("Launch id is required to graduate the curve vault.");
+      return graduateSolanaPumpSwapFromVault(draft, ctx, new PublicKey(ctx.tokenAddress));
     },
     async configureFeeRouter() {},
     async configureStrategy() {},
@@ -109,23 +114,31 @@ export function solanaAdapter(): CustomLaunchAdapter {
 export async function deploySolanaToken(draft: CustomLaunchDraft, ctx: AdapterContext): Promise<DeployResult> {
   assertTradingFeeBps(draft.fees.tradingFeeBps);
   assertFeeSplits(resolvedFeeAllocations(draft.mode, draft.fees).map((row) => ({ dest: row.id, bps: row.bps })));
-  await preflightOrbitxPumpSwap(draft, ctx.userId);
 
   const payer = await deskSolanaKey(ctx.userId);
   const protocol = protocolKeypair();
+  const curve = customLaunchCurveKeypair(ctx.launchId);
   const mint = Keypair.generate();
   const router = customLaunchFeeRouterKeypair(ctx.launchId);
   const conn = solanaConnection();
+  const deskSol = BigInt(await conn.getBalance(payer.publicKey, "confirmed").catch(() => 0));
+  if (deskSol < DESK_MINT_RENT_LAMPORTS + CURVE_RENT_LAMPORTS) {
+    throw new Error(
+      `Desk needs about ${Number(DESK_MINT_RENT_LAMPORTS + CURVE_RENT_LAMPORTS) / 1e9} SOL for mint rent and the curve vault (have ${Number(deskSol) / 1e9}). This is not quote liquidity.`,
+    );
+  }
+
+  const standard = draft.token.standard === "spl" ? "spl" : "token2022";
+  const programId = standard === "spl" ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
   const decimals = draft.token.decimals;
   const supply = parseSupply(draft.token.supply) * 10n ** BigInt(decimals);
-  const extensions = [ExtensionType.TransferFeeConfig];
-  const mintLen = getMintLen(extensions);
+  const taxBps = draft.fees.tradingFeeBps;
+  const withFee = standard === "token2022" && taxBps > 0;
+  const mintLen = withFee ? getMintLen([ExtensionType.TransferFeeConfig]) : MINT_SIZE;
   const lamports = await conn.getMinimumBalanceForRentExemption(mintLen);
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
-  const taxBps = draft.fees.tradingFeeBps;
-  const creatorAta = getAssociatedTokenAddressSync(mint.publicKey, payer.publicKey, false, TOKEN_2022_PROGRAM_ID);
-  const protocolAta = getAssociatedTokenAddressSync(mint.publicKey, protocol.publicKey, false, TOKEN_2022_PROGRAM_ID);
-  const routerTokenAta = getAssociatedTokenAddressSync(mint.publicKey, router.publicKey, false, TOKEN_2022_PROGRAM_ID);
+  const curveAta = getAssociatedTokenAddressSync(mint.publicKey, curve.publicKey, false, programId);
+  const routerTokenAta = getAssociatedTokenAddressSync(mint.publicKey, router.publicKey, false, programId);
 
   const tx = new Transaction({ feePayer: payer.publicKey, recentBlockhash: blockhash });
   tx.add(
@@ -135,57 +148,39 @@ export async function deploySolanaToken(draft: CustomLaunchDraft, ctx: AdapterCo
       newAccountPubkey: mint.publicKey,
       space: mintLen,
       lamports,
-      programId: TOKEN_2022_PROGRAM_ID,
+      programId,
     }),
-    createInitializeTransferFeeConfigInstruction(
-      mint.publicKey,
-      protocol.publicKey,
-      protocol.publicKey,
-      taxBps,
-      supply,
-      TOKEN_2022_PROGRAM_ID,
-    ),
-    createInitializeMint2Instruction(mint.publicKey, decimals, protocol.publicKey, protocol.publicKey, TOKEN_2022_PROGRAM_ID),
+  );
+  if (withFee) {
+    tx.add(
+      createInitializeTransferFeeConfigInstruction(
+        mint.publicKey,
+        protocol.publicKey,
+        protocol.publicKey,
+        taxBps,
+        supply,
+        TOKEN_2022_PROGRAM_ID,
+      ),
+    );
+  }
+  tx.add(
+    createInitializeMint2Instruction(mint.publicKey, decimals, protocol.publicKey, protocol.publicKey, programId),
     createAssociatedTokenAccountIdempotentInstruction(
       payer.publicKey,
-      creatorAta,
-      payer.publicKey,
+      curveAta,
+      curve.publicKey,
       mint.publicKey,
-      TOKEN_2022_PROGRAM_ID,
-    ),
-    createAssociatedTokenAccountIdempotentInstruction(
-      payer.publicKey,
-      protocolAta,
-      protocol.publicKey,
-      mint.publicKey,
-      TOKEN_2022_PROGRAM_ID,
+      programId,
     ),
     createAssociatedTokenAccountIdempotentInstruction(
       payer.publicKey,
       routerTokenAta,
       router.publicKey,
       mint.publicKey,
-      TOKEN_2022_PROGRAM_ID,
+      programId,
     ),
-  );
-
-  const tokenLiq = parseSupply(draft.markets.primary.pool.tokenAllocation || "0") * 10n ** BigInt(decimals);
-  const circulating = supply - tokenLiq;
-  if (circulating > 0n) {
-    tx.add(createMintToInstruction(mint.publicKey, creatorAta, protocol.publicKey, circulating, [], TOKEN_2022_PROGRAM_ID));
-  }
-  if (tokenLiq > 0n) {
-    tx.add(createMintToInstruction(mint.publicKey, protocolAta, protocol.publicKey, tokenLiq, [], TOKEN_2022_PROGRAM_ID));
-  }
-  tx.add(
-    createSetAuthorityInstruction(
-      mint.publicKey,
-      protocol.publicKey,
-      AuthorityType.MintTokens,
-      null,
-      [],
-      TOKEN_2022_PROGRAM_ID,
-    ),
+    createMintToInstruction(mint.publicKey, curveAta, protocol.publicKey, supply, [], programId),
+    createSetAuthorityInstruction(mint.publicKey, protocol.publicKey, AuthorityType.MintTokens, null, [], programId),
     createMetadataV3Instruction({
       mint: mint.publicKey,
       mintAuthority: protocol.publicKey,
@@ -195,6 +190,11 @@ export async function deploySolanaToken(draft: CustomLaunchDraft, ctx: AdapterCo
       symbol: draft.token.symbol,
       uri: draft.token.imageUrl || "",
     }),
+    SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey: curve.publicKey,
+      lamports: Number(CURVE_RENT_LAMPORTS),
+    }),
   );
 
   tx.sign(payer, mint, protocol);
@@ -203,26 +203,16 @@ export async function deploySolanaToken(draft: CustomLaunchDraft, ctx: AdapterCo
   void lastValidBlockHeight;
   void protocolDestinationForChain("solana");
 
-  const poolResult = await seedSolanaPumpSwapPool(
-    draft,
-    {
-      ...ctx,
-      tokenAddress: mint.publicKey.toBase58(),
-      tradeFeeBps: draft.fees.tradingFeeBps,
-      splitBps: splitArray(draft),
-      quoteAddress: quoteMintForDraft(draft).toBase58(),
-    },
-    mint.publicKey,
-  );
-
   return {
     tokenAddress: mint.publicKey.toBase58(),
-    poolAddress: poolResult.poolAddress,
-    routerAddress: poolResult.routerAddress,
-    hubAddress: poolResult.hubAddress,
-    factoryAddress: poolResult.factoryAddress,
-    txHash: poolResult.txHash || signature,
-    explorer: poolResult.txHash ? poolResult.explorer : explorerTx(signature),
+    poolAddress: curve.publicKey.toBase58(),
+    routerAddress: router.publicKey.toBase58(),
+    hubAddress: protocol.publicKey.toBase58(),
+    factoryAddress: programId.toBase58(),
+    vaultAddress: curve.publicKey.toBase58(),
+    mintProgram: standard,
+    txHash: signature,
+    explorer: explorerTx(signature),
   };
 }
 
@@ -246,8 +236,9 @@ async function executeSolana(action: string, amount: bigint, ctx: AdapterContext
   const protocol = protocolKeypair();
   const conn = solanaConnection();
   const { blockhash } = await conn.getLatestBlockhash("confirmed");
-  const mintAccount = await getMint(conn, mint, "confirmed", TOKEN_2022_PROGRAM_ID);
-  const decimals = mintAccount.decimals;
+  const mintMeta = await inspectMint(mint);
+  const programId = mintMeta.programId;
+  const decimals = mintMeta.decimals;
 
   if (action === "buyback" || action === "buyback_burn") {
     if (ctx.poolAddress && !isCustomLaunchPumpSwapPool(ctx)) {
@@ -274,9 +265,9 @@ async function executeSolana(action: string, amount: bigint, ctx: AdapterContext
     const tx = Transaction.from(Buffer.from(swapTx, "base64"));
     tx.partialSign(vault);
     if (action === "buyback_burn") {
-      const tokenAta = getAssociatedTokenAddressSync(mint, vault.publicKey, false, TOKEN_2022_PROGRAM_ID);
+      const tokenAta = getAssociatedTokenAddressSync(mint, vault.publicKey, false, programId);
       tx.add(
-        createBurnInstruction(tokenAta, mint, vault.publicKey, BigInt(quoteInfo.otherAmountThreshold), [], TOKEN_2022_PROGRAM_ID),
+        createBurnInstruction(tokenAta, mint, vault.publicKey, BigInt(quoteInfo.otherAmountThreshold), [], programId),
       );
     }
     const signature = await sendSignedTx(tx.serialize().toString("base64"));
@@ -291,9 +282,9 @@ async function executeSolana(action: string, amount: bigint, ctx: AdapterContext
 
   if (action === "burn") {
     const vault = customLaunchVaultKeypair(ctx.launchId, "burn");
-    const ata = getAssociatedTokenAddressSync(mint, vault.publicKey, false, TOKEN_2022_PROGRAM_ID);
+    const ata = getAssociatedTokenAddressSync(mint, vault.publicKey, false, programId);
     const tx = new Transaction({ feePayer: payer.publicKey, recentBlockhash: blockhash });
-    tx.add(createBurnInstruction(ata, mint, vault.publicKey, amount, [], TOKEN_2022_PROGRAM_ID));
+    tx.add(createBurnInstruction(ata, mint, vault.publicKey, amount, [], programId));
     tx.sign(payer, vault);
     const signature = await sendSignedTx(tx.serialize().toString("base64"));
     await waitForTx(signature);
@@ -313,13 +304,13 @@ async function executeSolana(action: string, amount: bigint, ctx: AdapterContext
       throw new Error("Strategy funds cannot be redirected to the creator wallet.");
     }
     const vault = customLaunchVaultKeypair(ctx.launchId, spec.vault);
-    const from = getAssociatedTokenAddressSync(mint, vault.publicKey, false, TOKEN_2022_PROGRAM_ID);
+    const from = getAssociatedTokenAddressSync(mint, vault.publicKey, false, programId);
     const toOwner = new PublicKey(spec.dest);
-    const to = getAssociatedTokenAddressSync(mint, toOwner, false, TOKEN_2022_PROGRAM_ID);
+    const to = getAssociatedTokenAddressSync(mint, toOwner, false, programId);
     const tx = new Transaction({ feePayer: payer.publicKey, recentBlockhash: blockhash });
     tx.add(
-      createAssociatedTokenAccountIdempotentInstruction(payer.publicKey, to, toOwner, mint, TOKEN_2022_PROGRAM_ID),
-      createTransferCheckedInstruction(from, mint, to, vault.publicKey, amount, decimals, [], TOKEN_2022_PROGRAM_ID),
+      createAssociatedTokenAccountIdempotentInstruction(payer.publicKey, to, toOwner, mint, programId),
+      createTransferCheckedInstruction(from, mint, to, vault.publicKey, amount, decimals, [], programId),
     );
     tx.sign(payer, vault);
     const signature = await sendSignedTx(tx.serialize().toString("base64"));
@@ -330,15 +321,15 @@ async function executeSolana(action: string, amount: bigint, ctx: AdapterContext
   if (action === "holders") {
     if (!ctx.recipients?.length) throw new Error("Holder distribution needs verified recipients.");
     const vault = customLaunchVaultKeypair(ctx.launchId, "holders");
-    const from = getAssociatedTokenAddressSync(mint, vault.publicKey, false, TOKEN_2022_PROGRAM_ID);
+    const from = getAssociatedTokenAddressSync(mint, vault.publicKey, false, programId);
     const tx = new Transaction({ feePayer: payer.publicKey, recentBlockhash: blockhash });
     for (const row of ctx.recipients) {
       if (row.address === ctx.creatorAddress) throw new Error("Creator cannot be a holder-reward recipient.");
       const owner = new PublicKey(row.address);
-      const to = getAssociatedTokenAddressSync(mint, owner, false, TOKEN_2022_PROGRAM_ID);
+      const to = getAssociatedTokenAddressSync(mint, owner, false, programId);
       tx.add(
-        createAssociatedTokenAccountIdempotentInstruction(payer.publicKey, to, owner, mint, TOKEN_2022_PROGRAM_ID),
-        createTransferCheckedInstruction(from, mint, to, vault.publicKey, row.amount, decimals, [], TOKEN_2022_PROGRAM_ID),
+        createAssociatedTokenAccountIdempotentInstruction(payer.publicKey, to, owner, mint, programId),
+        createTransferCheckedInstruction(from, mint, to, vault.publicKey, row.amount, decimals, [], programId),
       );
     }
     tx.sign(payer, vault);
@@ -367,6 +358,6 @@ export function solanaVaultAddresses(launchId: string) {
   return out;
 }
 
-export { customLaunchVaultKeypair, quoteMintForDraft as quoteMint, SOLANA_USDC };
+export { customLaunchVaultKeypair, customLaunchCurveKeypair, quoteMintForDraft as quoteMint, SOLANA_USDC };
 export { customLaunchPoolKeypair, customLaunchFeeRouterKeypair } from "@/lib/custom-launch/onchain/solana-keys";
 export { customLaunchPumpSwapPool } from "@/lib/custom-launch/onchain/solana-pumpswap";

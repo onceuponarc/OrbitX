@@ -4,6 +4,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import type { CustomLaunchDraft } from "@/lib/custom-launch/schema";
 import { resolvedFeeAllocations } from "@/lib/custom-launch/fees";
 import { quoteTicker, resolvedPrimaryPool } from "@/lib/custom-launch/markets";
+import { customLaunchCurveRaw } from "@/lib/custom-launch/curve";
+import { linkedCanonicalPools } from "@/lib/custom-launch/linked-pools";
 import { mapRuleAction } from "@/lib/custom-launch/onchain/actions";
 import type { DeployResult } from "@/lib/custom-launch/onchain/types";
 import type { PrintableChain } from "@onceupon/config/solana";
@@ -36,6 +38,16 @@ export type LaunchRow = {
   deploy_error: string | null;
   deployed_at: string | null;
   paused: boolean;
+  mint_program: string | null;
+  vault_address: string | null;
+  virtual_quote_raw: string | null;
+  virtual_base_raw: string | null;
+  real_quote_raw: string | null;
+  real_base_raw: string | null;
+  curve_k: string | null;
+  graduation_quote_raw: string | null;
+  lp_base_reserved_raw: string | null;
+  curve_status: string;
 };
 
 export type ExecutionRow = {
@@ -121,10 +133,27 @@ export async function persistConfigRows(launchId: string, draft: CustomLaunchDra
     role: "primary",
     quote_symbol: draft.markets.primary.quote,
     token_liquidity: primaryPool.tokenAllocation || null,
-    quote_liquidity: primaryPool.pairedAmount || null,
-    status: "pending",
+    quote_liquidity: "0",
+    status: "curve",
+    kind: "curve",
+    dex: "curve",
+    label: "Custom bonding curve",
   });
   if (marketError) throw new Error(marketError.message);
+  for (const pool of linkedCanonicalPools(draft.chain, draft.markets.primary.quote)) {
+    const { error: linkError } = await supabase.from("custom_launch_markets").insert({
+      launch_id: launchId,
+      role: "secondary",
+      quote_symbol: pool.quoteId,
+      pool_address: pool.address,
+      status: "linked",
+      kind: "canonical",
+      dex: pool.dex,
+      label: pool.label,
+      url: pool.url,
+    });
+    if (linkError) throw new Error(linkError.message);
+  }
   for (const market of draft.markets.secondary) {
     const { error } = await supabase.from("custom_launch_markets").insert({
       launch_id: launchId,
@@ -177,8 +206,19 @@ export async function markLaunchDeploying(id: string) {
   await db().from("custom_launches").update({ status: "deploying", updated_at: new Date().toISOString() }).eq("id", id);
 }
 
-export async function markLaunchLive(id: string, result: DeployResult, extras?: { vaults?: Record<string, string>; poolStatus?: string }) {
+export async function markLaunchLive(
+  id: string,
+  result: DeployResult,
+  extras?: {
+    vaults?: Record<string, string>;
+    poolStatus?: string;
+    curve?: ReturnType<typeof customLaunchCurveRaw>;
+    mintProgram?: string | null;
+    vaultAddress?: string | null;
+  },
+) {
   if (!result.txHash) throw new Error("Cannot mark a Custom Launch live without a confirmed transaction.");
+  const curve = extras?.curve;
   const { error } = await db()
     .from("custom_launches")
     .update({
@@ -192,6 +232,16 @@ export async function markLaunchLive(id: string, result: DeployResult, extras?: 
       deploy_error: null,
       deployed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      mint_program: extras?.mintProgram ?? result.mintProgram ?? null,
+      vault_address: extras?.vaultAddress ?? result.vaultAddress ?? null,
+      virtual_quote_raw: curve ? curve.virtualQuoteRaw.toString() : undefined,
+      virtual_base_raw: curve ? curve.virtualBaseRaw.toString() : undefined,
+      real_quote_raw: curve ? curve.realQuoteRaw.toString() : "0",
+      real_base_raw: curve ? curve.realBaseRaw.toString() : undefined,
+      curve_k: curve ? curve.k.toString() : undefined,
+      graduation_quote_raw: curve ? curve.graduateTargetRaw.toString() : undefined,
+      lp_base_reserved_raw: curve ? curve.lpReservedRaw.toString() : undefined,
+      curve_status: curve ? "curve" : "none",
     })
     .eq("id", id);
   if (error) throw new Error(error.message);
@@ -371,6 +421,15 @@ export async function publicLaunchView(launch: LaunchRow) {
     tokenAddress: launch.token_address,
     poolAddress: launch.pool_address,
     quoteAddress: launch.quote_address,
+    vaultAddress: launch.vault_address,
+    mintProgram: launch.mint_program,
+    curveStatus: launch.curve_status,
+    realQuote: launch.real_quote_raw,
+    realBase: launch.real_base_raw,
+    virtualQuote: launch.virtual_quote_raw,
+    virtualBase: launch.virtual_base_raw,
+    graduationQuote: launch.graduation_quote_raw,
+    lpReserved: launch.lp_base_reserved_raw,
     deployTx: launch.deploy_tx,
     deployedAt: launch.deployed_at,
     splits: splits.map((row) => ({ dest: row.dest as string, bps: row.bps as number })),
@@ -379,6 +438,10 @@ export async function publicLaunchView(launch: LaunchRow) {
       quote: row.quote_symbol as string,
       poolAddress: (row.pool_address as string | null) ?? null,
       status: row.status as string,
+      kind: (row.kind as string | null) ?? null,
+      dex: (row.dex as string | null) ?? null,
+      label: (row.label as string | null) ?? null,
+      url: (row.url as string | null) ?? null,
       tokenLiquidity: (row.token_liquidity as string | null) ?? null,
       quoteLiquidity: (row.quote_liquidity as string | null) ?? null,
     })),

@@ -26,7 +26,6 @@ import {
   type PoolConfig,
   type SecondaryMarket,
 } from "@/lib/custom-launch/markets";
-import { orbitxPairedAmount } from "@/lib/custom-launch/orbitx-seed";
 import {
   createLaunchModeState,
   isLaunchStrategyId,
@@ -35,7 +34,7 @@ import {
   type StrategyIntent,
 } from "@/lib/custom-launch/modes";
 import { createSupplyPlan, SUPPLY_BUCKETS, type SupplyPlan } from "@/lib/custom-launch/supply";
-import { type TokenConfig, type TokenLink } from "@/lib/custom-launch/token";
+import { isMintStandard, type TokenConfig, type TokenLink } from "@/lib/custom-launch/token";
 import { createCustomLaunchDraft, type CustomLaunchDraft } from "@/lib/custom-launch/schema";
 
 export const CUSTOM_LAUNCH_STORAGE_PREFIX = "orbitx.custom-launch.v4.";
@@ -77,7 +76,11 @@ function parseTokenConfig(raw: Record<string, unknown>, fallback: TokenConfig): 
         return [{ label: row.label, url: row.url }];
       })
     : [];
-  return { ...picked, extraLinks };
+  return {
+    ...picked,
+    extraLinks,
+    standard: isMintStandard(raw.standard) ? raw.standard : fallback.standard,
+  };
 }
 
 function parseSupplyPlan(raw: unknown): SupplyPlan {
@@ -143,12 +146,15 @@ function parseMarketsConfig(raw: unknown): MarketsConfig {
       })
     : [];
   const accessRaw = isRecord(raw.access) ? raw.access : {};
-  const source =
-    isRecord(primaryRaw.liquidity) && isLiquiditySourceId(primaryRaw.liquidity.source)
-      ? primaryRaw.liquidity.source
+  const sourceRaw =
+    isRecord(primaryRaw.liquidity) && typeof primaryRaw.liquidity.source === "string"
+      ? primaryRaw.liquidity.source === "orbitx"
+        ? "curve"
+        : primaryRaw.liquidity.source
       : base.primary.liquidity.source;
+  const source = isLiquiditySourceId(sourceRaw) ? sourceRaw : base.primary.liquidity.source;
   const pool = parsePoolConfig(primaryRaw.pool, quote);
-  if (source === "orbitx") pool.pairedAmount = orbitxPairedAmount(quote);
+  if (source === "curve") pool.pairedAmount = "0";
   return {
     primary: {
       quote,

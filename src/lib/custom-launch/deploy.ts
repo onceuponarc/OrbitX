@@ -5,6 +5,7 @@ import { protocolDestinationForChain } from "@/lib/custom-launch/onchain/validat
 import { splitArray } from "@/lib/custom-launch/onchain/splits";
 import { insertPreparingLaunch, markLaunchDeploying, markLaunchFailed, markLaunchLive } from "@/lib/custom-launch/persist";
 import { solanaVaultAddresses } from "@/lib/custom-launch/onchain/solana";
+import { customLaunchCurveRaw } from "@/lib/custom-launch/curve";
 import { launchIsReady } from "@/lib/custom-launch/readiness";
 import { assertFeeSplits, assertTradingFeeBps } from "@/lib/custom-launch/onchain/validate";
 import { resolvedFeeAllocations } from "@/lib/custom-launch/fees";
@@ -38,6 +39,11 @@ function lockedDest(draft: CustomLaunchDraft, kind: "charity" | "treasury" | "co
 
 function validAddr(chain: CustomLaunchDraft["chain"], value: string) {
   return chain === "solana" ? isSolanaAddress(value) : isEvmAddress(value);
+}
+
+function extrasPoolStatus(result: { poolAddress: string | null; mintProgram?: string | null }) {
+  if (result.mintProgram === "spl" || result.mintProgram === "token2022" || result.mintProgram === "erc20") return "curve";
+  return result.poolAddress ? "curve" : "unsupported";
 }
 
 export function quoteAddressForDraft(draft: CustomLaunchDraft) {
@@ -89,7 +95,10 @@ export async function deployCustomLaunch(input: { userId: string; draft: CustomL
     const vaults = draft.chain === "solana" ? solanaVaultAddresses(row.id) : undefined;
     await markLaunchLive(row.id, result, {
       vaults,
-      poolStatus: result.poolAddress ? "live" : "unsupported",
+      poolStatus: result.factoryAddress && result.poolAddress && result.mintProgram ? "curve" : extrasPoolStatus(result),
+      curve: customLaunchCurveRaw(draft),
+      mintProgram: result.mintProgram ?? (draft.chain === "solana" ? draft.token.standard : "erc20"),
+      vaultAddress: result.vaultAddress ?? null,
     });
     return { ...row, ...result, slug: row.id ? row.slug : row.slug, launchId: row.id, capabilities: caps };
   } catch (error) {

@@ -20,14 +20,6 @@ import type { PrintableChain } from "@onceupon/config/solana";
 import type { CustomLaunchDraft } from "@/lib/custom-launch/schema";
 import { flywheelActionIds } from "@/lib/custom-launch/onchain/actions";
 import { splitArray } from "@/lib/custom-launch/onchain/splits";
-import { parseTokenAmount } from "@/lib/custom-launch/onchain/pool-math";
-import {
-  evmSeederClients,
-  evmSeederKey,
-  orbitxEvmQuoteSeedUi,
-  seedUniswapV2Pool,
-  uniswapV2Addresses,
-} from "@/lib/custom-launch/onchain/evm-uniswap";
 
 function factoryAddress(chain: PrintableChain): Address | null {
   const env = chain === "arc" ? process.env.CUSTOM_LAUNCH_FACTORY_ARC : process.env.CUSTOM_LAUNCH_FACTORY_RH;
@@ -56,16 +48,10 @@ export function evmAdapter(chain: "arc" | "robinhood"): CustomLaunchAdapter {
   return {
     capabilities() {
       const factory = factoryAddress(chain);
-      const seeder = evmSeederKey();
-      const uniswap = uniswapV2Addresses(chain);
       let note = !factory
         ? `Custom Launch factory is not deployed on ${chain}. Set CUSTOM_LAUNCH_FACTORY_${chain === "arc" ? "ARC" : "RH"}.`
-        : !seeder
-          ? "OrbitX seeds Custom Launch liquidity. Set CUSTOM_LAUNCH_EVM_SEEDER_KEY and fund it — the creator is not charged for quote."
-          : uniswap
-            ? "OrbitX seeds the Custom Launch AMM from protocol inventory and opens Uniswap V2 when the seeder still holds both sides. Liquidity is add-only."
-            : "OrbitX seeds the Custom Launch Uniswap-style AMM from protocol inventory. The creator does not deposit quote. Liquidity is add-only.";
-      const ready = Boolean(factory && seeder);
+        : "Custom Launch opens a buyer-funded bonding curve. Neither OrbitX nor the creator deposits quote LP. Canonical funded DEX books are linked at launch. Graduation seeds the add-only AMM from the curve vault.";
+      const ready = Boolean(factory);
       if (chain === "robinhood") {
         try {
           protocolDestinationForChain("robinhood");
@@ -141,39 +127,19 @@ export async function deployEvm(
   assertFeeSplits(splits);
   const factory = factoryAddress(chain);
   if (!factory) throw new Error(evmAdapter(chain).capabilities().note);
-  const seeder = await evmSeederClients(chain);
-  if (!seeder) {
-    throw new Error(
-      "OrbitX seeds Custom Launch liquidity. The creator is not asked to deposit quote. Set CUSTOM_LAUNCH_EVM_SEEDER_KEY and fund it.",
-    );
-  }
+  const { wallet, pub, address } = await evmClients(chain, ctx.userId);
   const protocol = protocolDestinationForChain(chain) as Address;
-  const desk = await evmClients(chain, ctx.userId);
   const quote = (draft.markets.primary.quote === "usdc"
     ? (chain === "arc" ? ARC_USDC : ctx.quoteAddress)
     : ctx.quoteAddress) as Address | undefined;
   if (!quote) throw new Error("Custom Launch EVM primary pair must be a configured ERC-20 quote.");
   const decimals = draft.token.decimals;
   const supply = parseSupply(draft.token.supply) * 10n ** BigInt(decimals);
-  const tokenLiq = BigInt(draft.markets.primary.pool.tokenAllocation || "0") * 10n ** BigInt(decimals);
-  const quoteLiq = parseTokenAmount(orbitxEvmQuoteSeedUi("usdc"), chain === "arc" ? 6 : 18);
-  if (tokenLiq <= 0n || quoteLiq <= 0n) throw new Error("Custom Launch pool requires token allocation and an OrbitX quote seed.");
-  const seederQuote = await seeder.pub.readContract({
-    address: quote,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: [seeder.address],
-  });
-  if (seederQuote < quoteLiq) {
-    throw new Error(
-      `OrbitX seeder ${seeder.address} needs ${orbitxEvmQuoteSeedUi("usdc")} quote to open the book (have ${seederQuote.toString()} raw). The creator is not charged for quote liquidity.`,
-    );
-  }
-  const { request, result } = await seeder.pub.simulateContract({
+  const { request, result } = await pub.simulateContract({
     address: factory,
     abi: FACTORY_ABI,
     functionName: "createLaunch",
-    account: seeder.wallet.account,
+    account: wallet.account,
     args: [
       {
         name: draft.token.name,
@@ -185,37 +151,31 @@ export async function deployEvm(
         tradeFeeBps: draft.fees.tradingFeeBps,
         splitBps: splitArray(draft),
         protocol,
-        creator: desk.address as Address,
-        charity: (ctx.charity as Address) ?? desk.address as Address,
-        treasury: (ctx.treasury as Address) ?? desk.address as Address,
-        community: (ctx.community as Address) ?? desk.address as Address,
-        tokenLiquidity: tokenLiq,
-        quoteLiquidity: quoteLiq,
+        creator: address as Address,
+        charity: (ctx.charity as Address) ?? address as Address,
+        treasury: (ctx.treasury as Address) ?? address as Address,
+        community: (ctx.community as Address) ?? address as Address,
+        tokenLiquidity: 0n,
+        quoteLiquidity: 0n,
         maxExecution: 0n,
         cooldown: 0,
         flywheel: flywheelActionIds(draft),
       },
     ],
   });
-  const hash = await seeder.wallet.writeContract(request);
-  const receipt = await seeder.pub.waitForTransactionReceipt({ hash });
+  const hash = await wallet.writeContract(request);
+  const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error("Custom Launch transaction reverted.");
-  const [, hub, token, pool, router] = result as unknown as [bigint, Address, Address, Address, Address];
-  await seedUniswapV2Pool({
-    chain,
-    token,
-    quote,
-    tokenAmount: tokenLiq,
-    quoteAmount: quoteLiq,
-    lpRecipient: seeder.address,
-  });
+  const [, hub, token, , router] = result as unknown as [bigint, Address, Address, Address, Address];
 
   return {
     tokenAddress: token,
-    poolAddress: pool,
+    poolAddress: hub,
     routerAddress: router,
     hubAddress: hub,
     factoryAddress: factory,
+    vaultAddress: hub,
+    mintProgram: "erc20",
     txHash: hash,
     explorer: explorer(chain, hash),
   };

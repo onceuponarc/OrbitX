@@ -43,8 +43,10 @@ contract CustomLaunchFactory {
         if (paused) revert LaunchTypes.Paused();
         if (p.tradeFeeBps > LaunchTypes.MAX_TRADE_FEE_BPS) revert LaunchTypes.FeeCap();
         if (p.protocol == address(0) || p.creator == address(0) || p.quote == address(0)) revert LaunchTypes.ZeroAddress();
-        if (p.supply == 0 || p.tokenLiquidity == 0 || p.quoteLiquidity == 0) revert LaunchTypes.InsufficientBalance();
-        if (p.tokenLiquidity >= p.supply) revert LaunchTypes.InsufficientBalance();
+        if (p.supply == 0) revert LaunchTypes.InsufficientBalance();
+        if (p.quoteLiquidity > 0 && (p.tokenLiquidity == 0 || p.tokenLiquidity >= p.supply)) {
+            revert LaunchTypes.InsufficientBalance();
+        }
         _validateSplit(p.splitBps);
 
         StrategyHub hub = new StrategyHub(address(this), p.creator, p.protocol);
@@ -63,8 +65,12 @@ contract CustomLaunchFactory {
             p.cooldown,
             p.flywheel
         );
-        SafeERC20.pull(IERC20(p.quote), msg.sender, address(hub), p.quoteLiquidity);
-        hub.seed(p.tokenLiquidity, p.quoteLiquidity, p.creator);
+        if (p.quoteLiquidity > 0) {
+            SafeERC20.pull(IERC20(p.quote), msg.sender, address(hub), p.quoteLiquidity);
+            hub.seed(p.tokenLiquidity, p.quoteLiquidity, p.creator);
+        } else {
+            hub.armCurve(p.creator);
+        }
 
         id = ++launches;
         hubAddr = address(hub);

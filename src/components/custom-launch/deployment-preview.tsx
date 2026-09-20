@@ -29,7 +29,7 @@ export function DeploymentPreview() {
           <PreviewRow label="Token" value={snap.token.symbol === "—" ? "$SYMBOL" : snap.token.symbol} accent />
           <PreviewRow label="Strategy" value={snap.preview.strategy} />
           <PreviewRow label="Primary market" value={snap.preview.pair} />
-          <PreviewRow label="Initial liquidity" value={snap.preview.liquidity} />
+          <PreviewRow label="Launch book" value="Bonding curve · linked DEX books" />
           <PreviewRow label="Trading fee" value={snap.preview.fee} />
           <PreviewRow label="Automation" value={snap.preview.rules} />
           <PreviewRow label="Markets" value={snap.preview.markets} />

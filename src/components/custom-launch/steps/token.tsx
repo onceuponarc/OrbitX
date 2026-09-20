@@ -7,6 +7,7 @@ import { useCustomLaunch } from "@/components/custom-launch/draft-provider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatSupply, validateTokenConfig } from "@/lib/custom-launch/token";
+import { MintStandard } from "@/components/custom-launch/mint-standard";
 
 export function TokenStep() {
   const { draft, patch } = useCustomLaunch();
@@ -73,6 +74,11 @@ export function TokenStep() {
                 }
               />
             </Field>
+            {draft.chain === "solana" ? (
+              <div className="sm:col-span-2">
+                <MintStandard value={draft.token.standard} onChange={(standard) => setToken("standard", standard)} />
+              </div>
+            ) : null}
             <Field label="Description" className="sm:col-span-2">
               <Textarea
                 value={draft.token.description}

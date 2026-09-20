@@ -1,12 +1,10 @@
-import { orbitxPairedAmount } from "./orbitx-seed.ts";
-
 export const PRIMARY_QUOTES = ["sol", "usdc"] as const;
 export type PrimaryQuoteId = (typeof PRIMARY_QUOTES)[number];
 
 export const SECONDARY_QUOTES = ["sol", "usdc", "btc", "eth", "other"] as const;
 export type QuoteAssetId = (typeof SECONDARY_QUOTES)[number];
 
-export const LIQUIDITY_SOURCES = ["orbitx", "external", "existing", "custom"] as const;
+export const LIQUIDITY_SOURCES = ["curve", "external", "existing", "custom"] as const;
 export type LiquiditySourceId = (typeof LIQUIDITY_SOURCES)[number];
 
 export type MarketRole = "primary" | "secondary";
@@ -74,25 +72,22 @@ export const QUOTE_ASSETS: Record<QuoteAssetId, QuoteAsset> = {
   other: { id: "other", ticker: "OTHER", name: "Other asset", body: "Custom supported asset", mockUsd: 1 },
 };
 
-export const LIQUIDITY_SOURCE_META: Record<
-  LiquiditySourceId,
-  { title: string; body: string }
-> = {
-  orbitx: {
-    title: "OrbitX Infrastructure",
-    body: "OrbitX opens the public book at launch — PumpSwap on Solana, Uniswap-style AMM on Arc. You do not deposit quote.",
+export const LIQUIDITY_SOURCE_META: Record<LiquiditySourceId, { title: string; body: string }> = {
+  curve: {
+    title: "Custom bonding curve",
+    body: "Opens automatically at launch. Virtual reserves look like a full book; real quote starts at zero. Buyers fund the curve. Neither OrbitX nor the creator deposits LP.",
   },
   external: {
     title: "External Pool",
-    body: "Recorded only. Custom Launch still seeds the primary book from OrbitX inventory.",
+    body: "Recorded only. The primary book is still the custom bonding curve, then a real DEX pool at graduation from buyer funds.",
   },
   existing: {
     title: "Existing Liquidity",
-    body: "Recorded only. The launch pool is still opened by OrbitX, not from your wallet.",
+    body: "Recorded only. Canonical funded quote books are linked automatically. Nobody deposits LP at print.",
   },
   custom: {
     title: "Custom",
-    body: "Recorded only. Quote liquidity is not pulled from the creator desk.",
+    body: "Recorded only. Quote liquidity is not pulled from OrbitX or the creator desk.",
   },
 };
 
@@ -112,8 +107,8 @@ export type PoolEstimate = {
 
 export function createPoolConfig(quote: QuoteAssetId = "sol"): PoolConfig {
   return {
-    tokenAllocation: "200000000",
-    pairedAmount: quote === "usdc" ? orbitxPairedAmount("usdc") : quote === "sol" ? orbitxPairedAmount("sol") : "1",
+    tokenAllocation: "800000000",
+    pairedAmount: quote === "usdc" ? "0" : "0",
   };
 }
 
@@ -134,7 +129,7 @@ export function createMarketsConfig(): MarketsConfig {
     primary: {
       quote: "sol",
       pool: createPoolConfig("sol"),
-      liquidity: { source: "orbitx" },
+      liquidity: { source: "curve" },
       advanced: createAdvancedMarketSettings(),
     },
     secondary: [],
@@ -181,7 +176,7 @@ export function estimatePool(
   const mark = QUOTE_ASSETS[quote].mockUsd;
   const supply = parseAmount(totalSupply);
 
-  if (!(tokenAmount > 0) || !(pairedAmount > 0)) {
+  if (!(tokenAmount > 0)) {
     return {
       tokenAmount: Number.isFinite(tokenAmount) ? tokenAmount : 0,
       pairedAmount: Number.isFinite(pairedAmount) ? pairedAmount : 0,
@@ -192,27 +187,28 @@ export function estimatePool(
       marketCapUsd: 0,
       impactBps: 0,
       valid: false,
-      error: "Enter a valid liquidity amount.",
+      error: "Enter a valid token allocation for the curve.",
     };
   }
 
-  const pairedUsd = pairedAmount * mark;
-  const initialPrice = pairedUsd / tokenAmount;
+  const virtualPaired = pairedAmount > 0 ? pairedAmount : 0;
+  const pairedUsd = virtualPaired * mark;
+  const initialPrice = tokenAmount > 0 && pairedUsd > 0 ? pairedUsd / tokenAmount : 0;
   const liquidityUsd = pairedUsd * 2;
-  const marketCapUsd = supply > 0 ? supply * initialPrice : 0;
+  const marketCapUsd = supply > 0 && initialPrice > 0 ? supply * initialPrice : 0;
   const quoteIn = mark > 0 ? 100 / mark : 0;
-  const newPaired = pairedAmount + quoteIn;
-  const newToken = newPaired > 0 ? (tokenAmount * pairedAmount) / newPaired : tokenAmount;
-  const newPrice = newToken > 0 ? (newPaired * mark) / newToken : initialPrice;
+  const newPaired = virtualPaired + quoteIn;
+  const newToken = newPaired > 0 && virtualPaired > 0 ? (tokenAmount * virtualPaired) / newPaired : tokenAmount;
+  const newPrice = newToken > 0 && newPaired > 0 ? (newPaired * mark) / newToken : initialPrice;
   const impactBps = initialPrice > 0 ? Math.round(((newPrice - initialPrice) / initialPrice) * 10_000) : 0;
 
   return {
     tokenAmount,
-    pairedAmount,
+    pairedAmount: virtualPaired,
     pairedUsd,
     initialPrice,
     liquidityUsd,
-    ratio: tokenAmount / pairedAmount,
+    ratio: virtualPaired > 0 ? tokenAmount / virtualPaired : 0,
     marketCapUsd,
     impactBps,
     valid: true,
@@ -249,12 +245,35 @@ export function formatRatio(tokenAmount: number, pairedAmount: number, quoteLabe
 }
 
 export function resolvedPrimaryPool(markets: MarketsConfig): PoolConfig {
-  if (markets.primary.liquidity.source !== "orbitx") return markets.primary.pool;
-  return { ...markets.primary.pool, pairedAmount: orbitxPairedAmount(markets.primary.quote) };
+  return { ...markets.primary.pool, pairedAmount: "0" };
 }
 
 export function primaryEstimate(markets: MarketsConfig, totalSupply: string) {
-  return estimatePool(resolvedPrimaryPool(markets), markets.primary.quote, totalSupply);
+  const supply = parseAmount(totalSupply);
+  const quote = markets.primary.quote;
+  const mark = QUOTE_ASSETS[quote].mockUsd;
+  const startCapUi = quote === "usdc" ? 3_000 : 30;
+  const virtualBaseUi = supply > 0 ? (supply * 1.073) : 1_073_000_000;
+  const virtualQuoteUi = supply > 0 ? (startCapUi * virtualBaseUi) / supply : startCapUi;
+  const tradable = supply > 0 ? supply * 0.8 : 0;
+  const startPrice = virtualBaseUi > 0 ? (virtualQuoteUi / virtualBaseUi) * mark : 0;
+  const quoteIn = mark > 0 ? 100 / mark : 0;
+  const newQuote = virtualQuoteUi + quoteIn;
+  const newBase = newQuote > 0 ? (virtualBaseUi * virtualQuoteUi) / newQuote : virtualBaseUi;
+  const newPrice = newBase > 0 ? (newQuote / newBase) * mark : startPrice;
+  const impactBps = startPrice > 0 ? Math.round(((newPrice - startPrice) / startPrice) * 10_000) : 0;
+  return {
+    tokenAmount: tradable,
+    pairedAmount: virtualQuoteUi,
+    pairedUsd: virtualQuoteUi * mark,
+    initialPrice: startPrice,
+    liquidityUsd: virtualQuoteUi * mark,
+    ratio: virtualQuoteUi > 0 ? tradable / virtualQuoteUi : 0,
+    marketCapUsd: supply > 0 ? supply * startPrice : 0,
+    impactBps,
+    valid: supply > 0,
+    error: undefined,
+  } satisfies PoolEstimate;
 }
 
 export function primaryMarketComplete(markets: MarketsConfig, totalSupply = "1000000000") {
@@ -265,11 +284,9 @@ export function primaryMarketError(markets: MarketsConfig, totalSupply = "100000
   if (!markets.primary.quote || !markets.access.primaryEnabled) {
     return "Select a primary market to continue.";
   }
-  const estimate = primaryEstimate(markets, totalSupply);
-  if (!estimate.valid || estimate.error === "Enter a valid liquidity amount.") {
-    return "Enter a valid liquidity amount.";
-  }
-  return estimate.error;
+  const supply = parseAmount(totalSupply);
+  if (!(supply > 0)) return "Set a token supply before opening the curve.";
+  return undefined;
 }
 
 export function liquidityAllocationPct(tokenAllocation: string, totalSupply: string) {
@@ -310,9 +327,7 @@ export function secondaryMarketError(market: SecondaryMarket, siblings: Secondar
     );
     if (sameTicker.length > 0) return "That market has already been added.";
   }
-  const estimate = estimatePool(market.pool, market.quote, "1", market.customTicker);
-  if (!estimate.valid) return "Complete this market or remove it.";
-  return estimate.error ?? (ticker ? undefined : "Complete this market or remove it.");
+  return ticker ? undefined : "Complete this market or remove it.";
 }
 
 export function secondaryMarketsComplete(markets: MarketsConfig) {

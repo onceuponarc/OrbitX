@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     if (!launch) return NextResponse.json({ error: "Custom Launch not found." }, { status: 404 });
     const { user } = await getSessionUser();
     const isAuthor = Boolean(user && user.id === launch.author_user_id);
-    if (launch.status !== "live" && launch.status !== "paused" && !isAuthor) {
+    if (launch.status !== "live" && launch.status !== "paused" && launch.status !== "graduated" && !isAuthor) {
       return NextResponse.json({ error: "Custom Launch not found." }, { status: 404 });
     }
     const publicView = await publicLaunchView(launch);
