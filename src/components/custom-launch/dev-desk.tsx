@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ControlPanel, MetricTile } from "@/components/custom-launch/panel";
 import { formatBps } from "@/lib/custom-launch/schema";
+import { parseHolderLines } from "@/lib/custom-launch/recipients";
 import type { ExecuteAction } from "@/lib/custom-launch/onchain/validate";
 
 const ACTION_LABEL: Record<string, string> = {
@@ -22,11 +24,22 @@ const ACTION_LABEL: Record<string, string> = {
   flywheel: "Flywheel",
 };
 
+type Readings = {
+  feeBalance: number;
+  marketCap: number;
+  volume: number;
+  holders: number;
+  liquidity: number;
+  source?: Record<string, "chain" | "unavailable">;
+  notes?: string[];
+};
+
 type DeskPayload = {
   error?: string;
   author?: boolean;
   capabilities?: { note: string; poolCreate: boolean; buyback: boolean; burn: boolean; addLiquidity: boolean };
   enabledActions?: ExecuteAction[];
+  readings?: Readings;
   launch?: {
     id: string;
     tokenName: string;
@@ -38,7 +51,13 @@ type DeskPayload = {
     tradeFeeBps: number;
     deployTx: string | null;
   };
-  vaults?: { dest: string; quote_balance: string; token_balance: string; chain_address: string | null }[];
+  vaults?: {
+    dest: string;
+    quote_balance: string;
+    token_balance: string;
+    chain_address: string | null;
+    synced_at?: string | null;
+  }[];
   executions?: {
     id: string;
     action: string;
@@ -52,17 +71,33 @@ type DeskPayload = {
   destinations?: Record<string, string | null>;
 };
 
+const EMPTY_READINGS: Readings = { feeBalance: 0, marketCap: 0, volume: 0, holders: 0, liquidity: 0 };
+
 export function CustomLaunchDevDesk({ slug }: { slug: string }) {
   const [data, setData] = useState<DeskPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [amount, setAmount] = useState("0");
+  const [holderLines, setHolderLines] = useState("");
+  const [readings, setReadings] = useState<Readings>(EMPTY_READINGS);
   const [pending, setPending] = useState<string | null>(null);
+  const [automationNote, setAutomationNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/custom-launch/status?slug=${encodeURIComponent(slug)}`);
     const body = (await response.json()) as DeskPayload;
     if (!response.ok) throw new Error(body.error || "Could not load the desk.");
     setData(body);
+    if (body.readings) {
+      setReadings({
+        feeBalance: body.readings.feeBalance,
+        marketCap: body.readings.marketCap,
+        volume: body.readings.volume,
+        holders: body.readings.holders,
+        liquidity: body.readings.liquidity,
+        source: body.readings.source,
+        notes: body.readings.notes,
+      });
+    }
   }, [slug]);
 
   useEffect(() => {
@@ -74,10 +109,15 @@ export function CustomLaunchDevDesk({ slug }: { slug: string }) {
     setPending(action);
     setError(null);
     try {
+      let recipients: { address: string; amount: string }[] | undefined;
+      if (action === "holders") {
+        recipients = parseHolderLines(holderLines);
+        if (!recipients.length) throw new Error("Add holder recipients as address, raw amount — one per line.");
+      }
       const response = await fetch("/api/custom-launch/execute", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ launchId: data.launch.id, action, amount }),
+        body: JSON.stringify({ launchId: data.launch.id, action, amount, recipients }),
       });
       const body = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(body.error || "Execution failed.");
@@ -93,14 +133,32 @@ export function CustomLaunchDevDesk({ slug }: { slug: string }) {
     if (!data?.launch?.id) return;
     setPending("automation");
     setError(null);
+    setAutomationNote(null);
     try {
       const response = await fetch("/api/custom-launch/automation", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ launchId: data.launch.id, amount }),
+        body: JSON.stringify({
+          launchId: data.launch.id,
+          amount,
+          holderLines,
+          readings: {
+            feeBalance: readings.feeBalance,
+            marketCap: readings.marketCap,
+            volume: readings.volume,
+            holders: readings.holders,
+            liquidity: readings.liquidity,
+          },
+        }),
       });
-      const body = (await response.json()) as { error?: string };
+      const body = (await response.json()) as { error?: string; ran?: { action: string; error?: string }[] };
       if (!response.ok) throw new Error(body.error || "Automation failed.");
+      const ran = body.ran ?? [];
+      setAutomationNote(
+        ran.length
+          ? `Tried ${ran.length} action${ran.length === 1 ? "" : "s"}. ${ran.filter((row) => row.error).length} failed.`
+          : "No active rules matched these readings.",
+      );
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Automation failed.");
@@ -114,6 +172,7 @@ export function CustomLaunchDevDesk({ slug }: { slug: string }) {
   }
 
   const actions = (data.enabledActions ?? []).filter((action) => ACTION_LABEL[action]);
+  const showHolders = actions.includes("holders");
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 py-8">
@@ -136,7 +195,7 @@ export function CustomLaunchDevDesk({ slug }: { slug: string }) {
         <p className="mt-4 break-all font-mono text-xs text-white/45">Token {data.launch.tokenAddress}</p>
       </ControlPanel>
 
-      <ControlPanel eyebrow="Strategy balances" title="Vaults">
+      <ControlPanel eyebrow="Strategy balances" title="Vaults" body="Balances are read from chain on desk load. Zero means the vault is empty, not a mock.">
         <div className="grid gap-2 sm:grid-cols-2">
           {(data.vaults ?? []).map((vault) => (
             <div key={vault.dest} className="rounded-2xl border border-white/10 px-4 py-3">
@@ -145,17 +204,81 @@ export function CustomLaunchDevDesk({ slug }: { slug: string }) {
               {vault.chain_address ? (
                 <p className="mt-1 break-all font-mono text-[11px] text-white/35">{vault.chain_address}</p>
               ) : null}
+              {vault.synced_at ? (
+                <p className="mt-1 font-mono text-[10px] text-white/30">Synced {vault.synced_at}</p>
+              ) : null}
             </div>
           ))}
         </div>
       </ControlPanel>
 
+      <ControlPanel
+        eyebrow="Live readings"
+        title="Automation inputs"
+        body="Fee balance and pool liquidity come from chain when available. Volume and holder count are not indexed — enter them only if you have a real snapshot."
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <ReadingField
+            label="Fee balance"
+            source={readings.source?.feeBalance}
+            value={String(readings.feeBalance)}
+            onChange={(value) => setReadings((current) => ({ ...current, feeBalance: Number(value) || 0 }))}
+          />
+          <ReadingField
+            label="Market cap"
+            source={readings.source?.marketCap}
+            value={String(readings.marketCap)}
+            onChange={(value) => setReadings((current) => ({ ...current, marketCap: Number(value) || 0 }))}
+          />
+          <ReadingField
+            label="Volume"
+            source={readings.source?.volume}
+            value={String(readings.volume)}
+            onChange={(value) => setReadings((current) => ({ ...current, volume: Number(value) || 0 }))}
+          />
+          <ReadingField
+            label="Holders"
+            source={readings.source?.holders}
+            value={String(readings.holders)}
+            onChange={(value) => setReadings((current) => ({ ...current, holders: Number(value) || 0 }))}
+          />
+          <ReadingField
+            label="Liquidity"
+            source={readings.source?.liquidity}
+            value={String(readings.liquidity)}
+            onChange={(value) => setReadings((current) => ({ ...current, liquidity: Number(value) || 0 }))}
+          />
+        </div>
+        {(readings.notes ?? []).map((note) => (
+          <p key={note} className="mt-3 text-xs text-white/40">
+            {note}
+          </p>
+        ))}
+      </ControlPanel>
+
       <ControlPanel eyebrow="Actions" title="Execute enabled strategies">
-        <div className="mb-4 max-w-xs">
-          <label className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">Amount (raw units)</label>
-          <Input value={amount} onChange={(event) => setAmount(event.target.value)} className="mt-1" />
+        <div className="mb-4 grid gap-4 lg:grid-cols-2">
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">Amount (raw units)</label>
+            <Input value={amount} onChange={(event) => setAmount(event.target.value)} className="mt-1" />
+          </div>
+          {showHolders ? (
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">
+                Holder recipients
+              </label>
+              <Textarea
+                value={holderLines}
+                onChange={(event) => setHolderLines(event.target.value)}
+                className="mt-1 min-h-24"
+                placeholder={"walletAddress 1000000"}
+              />
+              <p className="mt-1 text-[11px] text-white/35">One verified holder per line: address, then raw token amount. Creator wallets are rejected.</p>
+            </div>
+          ) : null}
         </div>
         {error ? <p className="mb-3 text-sm text-heat">{error}</p> : null}
+        {automationNote ? <p className="mb-3 text-sm text-white/60">{automationNote}</p> : null}
         <div className="flex flex-wrap gap-2">
           {actions.map((action) => (
             <Button
@@ -224,5 +347,27 @@ export function CustomLaunchDevDesk({ slug }: { slug: string }) {
         )}
       </ControlPanel>
     </div>
+  );
+}
+
+function ReadingField({
+  label,
+  value,
+  source,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  source?: "chain" | "unavailable";
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">
+        {label}
+        {source === "chain" ? " · live" : " · enter"}
+      </span>
+      <Input value={value} onChange={(event) => onChange(event.target.value)} className="mt-1" />
+    </label>
   );
 }

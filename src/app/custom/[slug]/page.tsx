@@ -75,6 +75,30 @@ export default async function CustomTokenPage({ params }: Props) {
           <AddressRow label="Pool" value={view.poolAddress ?? "Not created on this chain"} />
           <AddressRow label="Deploy tx" value={view.deployTx ?? "—"} />
         </div>
+        <Socials socials={view.socials} />
+      </section>
+
+      <section className="ox-console rounded-[1.5rem] p-6">
+        <h2 className="text-xl font-semibold">Markets</h2>
+        <p className="mt-1 text-sm text-white/45">
+          Primary is created only when the chain has a Custom Launch pool. Secondary books are recorded, not deployed.
+        </p>
+        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+          {view.markets.map((market, index) => (
+            <li key={`${market.role}-${market.quote}-${index}`} className="rounded-2xl border border-white/10 px-4 py-3 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold capitalize">{market.role}</span>
+                <span className="font-mono text-xs text-white/45">{market.status}</span>
+              </div>
+              <p className="mt-1 text-white/70">${view.tokenSymbol} / {market.quote.toUpperCase()}</p>
+              {market.poolAddress ? (
+                <p className="mt-1 break-all font-mono text-[11px] text-white/40">{market.poolAddress}</p>
+              ) : (
+                <p className="mt-1 text-xs text-white/40">No pool address on this chain.</p>
+              )}
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="ox-console rounded-[1.5rem] p-6">
@@ -139,4 +163,42 @@ function AddressRow({ label, value }: { label: string; value: string }) {
       <p className="mt-1 break-all font-mono text-xs text-white/70">{value}</p>
     </div>
   );
+}
+
+function Socials({
+  socials,
+}: {
+  socials: { website: string; twitter: string; telegram: string; discord: string };
+}) {
+  const links = [
+    { label: "Website", href: hrefFor(socials.website) },
+    { label: "X", href: hrefFor(socials.twitter, "https://x.com/") },
+    { label: "Telegram", href: hrefFor(socials.telegram, "https://t.me/") },
+    { label: "Discord", href: hrefFor(socials.discord) },
+  ].filter((row) => row.href);
+  if (!links.length) return null;
+  return (
+    <ul className="mt-5 flex flex-wrap gap-2">
+      {links.map((row) => (
+        <li key={row.label}>
+          <a
+            href={row.href}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-white/15 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-white/70 hover:text-white"
+          >
+            {row.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function hrefFor(value: string, prefix?: string) {
+  const raw = value.trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (prefix) return `${prefix}${raw.replace(/^@/, "")}`;
+  return `https://${raw}`;
 }

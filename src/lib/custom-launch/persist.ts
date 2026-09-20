@@ -3,9 +3,11 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { CustomLaunchDraft } from "@/lib/custom-launch/schema";
 import { resolvedFeeAllocations } from "@/lib/custom-launch/fees";
+import { quoteTicker } from "@/lib/custom-launch/markets";
 import { mapRuleAction } from "@/lib/custom-launch/onchain/actions";
 import type { DeployResult } from "@/lib/custom-launch/onchain/types";
 import type { PrintableChain } from "@onceupon/config/solana";
+import type { HolderLine } from "@/lib/custom-launch/recipients";
 
 export type LaunchRow = {
   id: string;
@@ -122,6 +124,17 @@ export async function persistConfigRows(launchId: string, draft: CustomLaunchDra
     status: "pending",
   });
   if (marketError) throw new Error(marketError.message);
+  for (const market of draft.markets.secondary) {
+    const { error } = await supabase.from("custom_launch_markets").insert({
+      launch_id: launchId,
+      role: "secondary",
+      quote_symbol: quoteTicker(market.quote, market.customTicker),
+      token_liquidity: market.pool.tokenAllocation || null,
+      quote_liquidity: market.pool.pairedAmount || null,
+      status: "unsupported",
+    });
+    if (error) throw new Error(error.message);
+  }
   for (const rule of draft.automation.rules) {
     const action = mapRuleAction(rule.actions[0]?.kind ?? "claim_fees");
     if (!action) continue;
@@ -233,6 +246,31 @@ export async function loadRules(launchId: string) {
   return data ?? [];
 }
 
+export async function loadMarkets(launchId: string) {
+  const { data, error } = await db().from("custom_launch_markets").select("*").eq("launch_id", launchId);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function insertDistributions(input: {
+  launchId: string;
+  executionId: string;
+  recipients: HolderLine[];
+  txHash: string;
+}) {
+  if (!input.recipients.length) return;
+  const { error } = await db().from("custom_launch_distributions").insert(
+    input.recipients.map((row) => ({
+      launch_id: input.launchId,
+      execution_id: input.executionId,
+      recipient: row.address,
+      amount: row.amount,
+      tx_hash: input.txHash,
+    })),
+  );
+  if (error) throw new Error(error.message);
+}
+
 export async function loadPublicExecutions(launchId: string) {
   const { data, error } = await db()
     .from("custom_launch_executions")
@@ -318,7 +356,7 @@ export async function updateVaultBalances(launchId: string, dest: string, quote?
 }
 
 export async function publicLaunchView(launch: LaunchRow) {
-  const splits = await loadSplits(launch.id);
+  const [splits, markets] = await Promise.all([loadSplits(launch.id), loadMarkets(launch.id)]);
   return {
     id: launch.id,
     slug: launch.slug,
@@ -334,6 +372,14 @@ export async function publicLaunchView(launch: LaunchRow) {
     deployTx: launch.deploy_tx,
     deployedAt: launch.deployed_at,
     splits: splits.map((row) => ({ dest: row.dest as string, bps: row.bps as number })),
+    markets: markets.map((row) => ({
+      role: row.role as string,
+      quote: row.quote_symbol as string,
+      poolAddress: (row.pool_address as string | null) ?? null,
+      status: row.status as string,
+      tokenLiquidity: (row.token_liquidity as string | null) ?? null,
+      quoteLiquidity: (row.quote_liquidity as string | null) ?? null,
+    })),
     imageUrl: launch.config?.token?.imageUrl ?? launch.metadata_uri,
     description: launch.config?.token?.description ?? "",
     socials: {

@@ -30,8 +30,10 @@ export function LaunchReadiness({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-gold/80">Launch readiness</p>
-          <h3 className="mt-1 text-lg font-semibold tracking-tight">Local mock validation</h3>
-          <p className="mt-1 text-xs text-white/40">UI checks only. No chain, API, or wallet is consulted.</p>
+          <h3 className="mt-1 text-lg font-semibold tracking-tight">Configuration checks</h3>
+          <p className="mt-1 text-xs text-white/40">
+            Local draft completeness. Sign-in and chain capability are confirmed on the deploy desk.
+          </p>
         </div>
         <span
           className={cn(

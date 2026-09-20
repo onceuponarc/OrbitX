@@ -4,6 +4,8 @@ import { loadLaunchById, loadRules, touchRule } from "@/lib/custom-launch/persis
 import { executeCustomLaunchAction } from "@/lib/custom-launch/execute";
 import { cooldownOpen, executableActions, ruleConditionsMet, type LiveReadings } from "@/lib/custom-launch/engine";
 import type { AutomationRule } from "@/lib/custom-launch/automation";
+import { liveReadingsForLaunch, syncLaunchVaults } from "@/lib/custom-launch/sync";
+import { parseHolderLines } from "@/lib/custom-launch/recipients";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,20 +15,34 @@ export async function POST(request: Request) {
   try {
     const { user } = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Sign in to run automation." }, { status: 401 });
-    const body = (await request.json()) as { launchId?: string; readings?: Partial<LiveReadings>; amount?: string };
+    const body = (await request.json()) as {
+      launchId?: string;
+      readings?: Partial<LiveReadings>;
+      amount?: string;
+      recipients?: { address: string; amount: string }[];
+      holderLines?: string;
+    };
     if (!body.launchId) return NextResponse.json({ error: "launchId is required." }, { status: 400 });
     const launch = await loadLaunchById(body.launchId);
     if (!launch) return NextResponse.json({ error: "Custom Launch not found." }, { status: 404 });
-    if (launch.author_user_id !== user.id) return NextResponse.json({ error: "Only the creator can run automation." }, { status: 403 });
-    const rules = await loadRules(launch.id);
+    if (launch.author_user_id !== user.id) {
+      return NextResponse.json({ error: "Only the creator can run automation." }, { status: 403 });
+    }
+    const vaults = await syncLaunchVaults(launch).catch(() => undefined);
+    const chainLive = await liveReadingsForLaunch(launch, vaults);
     const live: LiveReadings = {
-      feeBalance: Number(body.readings?.feeBalance ?? 0),
-      marketCap: Number(body.readings?.marketCap ?? 0),
-      volume: Number(body.readings?.volume ?? 0),
-      holders: Number(body.readings?.holders ?? 0),
-      liquidity: Number(body.readings?.liquidity ?? 0),
+      feeBalance: Number(body.readings?.feeBalance ?? chainLive.feeBalance),
+      marketCap: Number(body.readings?.marketCap ?? chainLive.marketCap),
+      volume: Number(body.readings?.volume ?? chainLive.volume),
+      holders: Number(body.readings?.holders ?? chainLive.holders),
+      liquidity: Number(body.readings?.liquidity ?? chainLive.liquidity),
       now: Date.now(),
     };
+    let recipients = body.recipients;
+    if (!recipients?.length && body.holderLines) {
+      recipients = parseHolderLines(body.holderLines);
+    }
+    const rules = await loadRules(launch.id);
     const ran: { ruleId: string; action: string; result?: unknown; error?: string }[] = [];
     for (const row of rules) {
       const config = row.config as AutomationRule;
@@ -43,6 +59,7 @@ export async function POST(request: Request) {
             action,
             amount,
             ruleId: row.id,
+            recipients: action === "holders" ? recipients : undefined,
           });
           await touchRule(row.id);
           ran.push({ ruleId: row.id, action, result });
@@ -55,7 +72,7 @@ export async function POST(request: Request) {
         }
       }
     }
-    return NextResponse.json({ ran });
+    return NextResponse.json({ ran, readings: live, chainReadings: chainLive });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Automation tick failed." },

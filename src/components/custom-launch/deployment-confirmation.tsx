@@ -6,7 +6,8 @@ import { useCustomLaunch } from "@/components/custom-launch/draft-provider";
 import { reviewSnapshot } from "@/lib/custom-launch/review";
 
 export function DeploymentConfirmation() {
-  const { draft, deployPhase, closeDeployConfirm, startDeploy, setStep } = useCustomLaunch();
+  const { draft, deployPhase, closeDeployConfirm, startDeploy, setStep, canBroadcast, deployBlockedReason } =
+    useCustomLaunch();
   const [understood, setUnderstood] = useState(false);
   const snap = reviewSnapshot(draft);
 
@@ -48,6 +49,7 @@ export function DeploymentConfirmation() {
           />
           <span>I understand this configuration will determine the token&apos;s launch economics.</span>
         </label>
+        {deployBlockedReason ? <p className="mt-3 text-sm text-heat">{deployBlockedReason}</p> : null}
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="ghost" onClick={closeDeployConfirm}>
             Cancel
@@ -64,7 +66,7 @@ export function DeploymentConfirmation() {
           </Button>
           <Button
             type="button"
-            disabled={!understood}
+            disabled={!understood || !canBroadcast}
             onClick={() => {
               closeDeployConfirm();
               void startDeploy();

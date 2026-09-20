@@ -42,8 +42,7 @@ export default function LaunchHubPage() {
         <h1 className="mt-1 text-3xl font-semibold tracking-tight lg:text-4xl">Choose a chain</h1>
         <p className="mt-2 max-w-2xl text-sm text-white/55 lg:text-base">
           Every venue has two desks. Normal Launch is the live print you already use. Custom Launch
-          is the advanced control surface for economics, markets, and automation — UI only in this
-          phase.
+          is the advanced on-chain desk for economics, markets, and automation.
         </p>
       </section>
       <div className="grid gap-3 lg:grid-cols-3 lg:gap-4">

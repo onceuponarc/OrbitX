@@ -22,6 +22,7 @@ assert(hub.includes('customHref: "/launch/arc/custom"'), "hub links Arc Custom L
 assert(hub.includes('customHref: "/launch/robinhood/custom"'), "hub links RH Custom Launch");
 assert(hub.includes("Normal Launch"), "hub shows Normal Launch");
 assert(hub.includes("Custom Launch"), "hub shows Custom Launch");
+assert(!hub.includes("UI only in this phase"), "hub no longer marks Custom Launch as UI-only");
 assert(hub.includes('status: "Pons v2 · live"'), "hub still marks Robinhood live");
 assert(hub.includes("beta: false"), "hub Robinhood lane must not be beta");
 
@@ -356,6 +357,16 @@ assert(confirm.includes("startDeploy"), "confirmation starts a real deploy");
 assert(progress.includes("does not invent a token address"), "progress does not invent addresses");
 assert(!success.includes("successfully deployed"), "success must not use fake success copy");
 assert(!success.includes("MOCK_TX_NOT_BROADCAST"), "success must not show a mock tx");
+
+const shell = readFileSync(new URL("../src/components/custom-launch/shell.tsx", import.meta.url), "utf8");
+const footer = readFileSync(new URL("../src/components/custom-launch/step-footer.tsx", import.meta.url), "utf8");
+const publicPage = readFileSync(new URL("../src/app/custom/[slug]/page.tsx", import.meta.url), "utf8");
+assert(!shell.includes("nothing is broadcast from this screen"), "shell does not claim preview-only");
+assert(!footer.includes("Mock / demo complete"), "footer does not claim a mock deploy");
+assert(footer.includes("Deploy broadcasts a real transaction"), "footer says deploy is real");
+assert(publicPage.includes("Socials"), "public token page renders socials");
+assert(publicPage.includes("Markets"), "public token page renders markets");
+assert(deployPreview.includes("deployBlockedReason") || deployPreview.includes("Sign in"), "deploy preview gates unsigned users");
 
 const { evaluateReadiness, launchIsReady } = await import("../src/lib/custom-launch/readiness.ts");
 

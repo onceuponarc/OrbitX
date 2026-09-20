@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -29,6 +30,7 @@ import {
   setCustomLaunchDraft,
   subscribeCustomLaunchDraft,
 } from "@/lib/custom-launch/draft";
+import type { ChainCapability } from "@/lib/custom-launch/onchain/types";
 
 export type DeployPhase = "idle" | "confirming" | "running" | "ready" | "failed";
 
@@ -62,6 +64,12 @@ type CustomLaunchContextValue = {
   total: number;
   ready: boolean;
   missing: ReturnType<typeof incompleteSteps>;
+  signedIn: boolean;
+  handle: string | null;
+  sessionLoading: boolean;
+  capabilities: ChainCapability | null;
+  canBroadcast: boolean;
+  deployBlockedReason: string | null;
   deployPhase: DeployPhase;
   deployStage: number;
   deployResult: DeployResultView | null;
@@ -96,6 +104,39 @@ export function CustomLaunchDraftProvider({
   const [deployStage, setDeployStage] = useState(0);
   const [deployResult, setDeployResult] = useState<DeployResultView | null>(null);
   const [deployError, setDeployError] = useState<string | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
+  const [handle, setHandle] = useState<string | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [capabilities, setCapabilities] = useState<ChainCapability | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSessionLoading(true);
+    fetch(`/api/custom-launch/capability?chain=${encodeURIComponent(chain)}`)
+      .then(async (response) => {
+        const body = (await response.json()) as {
+          signedIn?: boolean;
+          handle?: string | null;
+          capabilities?: ChainCapability;
+          error?: string;
+        };
+        if (cancelled) return;
+        setSignedIn(Boolean(body.signedIn));
+        setHandle(body.handle ?? null);
+        setCapabilities(body.capabilities ?? null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSignedIn(false);
+        setCapabilities(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSessionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chain]);
 
   const patch = useCallback(
     <K extends PatchSection>(key: K, next: Partial<CustomLaunchDraft[K]>) => {
@@ -136,8 +177,17 @@ export function CustomLaunchDraftProvider({
   const openDeployConfirm = useCallback(() => {
     const current = getCustomLaunchDraftSnapshot(chain);
     if (!launchIsReady(current)) return;
+    if (!signedIn) {
+      setDeployError("Sign in before deploying a Custom Launch.");
+      return;
+    }
+    if (capabilities && !capabilities.tokenCreate) {
+      setDeployError(capabilities.note);
+      return;
+    }
+    setDeployError(null);
     setDeployPhase("confirming");
-  }, [chain]);
+  }, [capabilities, chain, signedIn]);
 
   const closeDeployConfirm = useCallback(() => {
     setDeployPhase((phase) => (phase === "confirming" ? "idle" : phase));
@@ -146,6 +196,16 @@ export function CustomLaunchDraftProvider({
   const startDeploy = useCallback(async () => {
     const current = getCustomLaunchDraftSnapshot(chain);
     if (!launchIsReady(current)) return;
+    if (!signedIn) {
+      setDeployError("Sign in before deploying a Custom Launch.");
+      setDeployPhase("failed");
+      return;
+    }
+    if (capabilities && !capabilities.tokenCreate) {
+      setDeployError(capabilities.note);
+      setDeployPhase("failed");
+      return;
+    }
     setCustomLaunchDraft(chain, { ...current, reviewedAt: new Date().toISOString() });
     setDeployResult(null);
     setDeployError(null);
@@ -185,9 +245,18 @@ export function CustomLaunchDraftProvider({
       setDeployError(error instanceof Error ? error.message : "Custom Launch deployment failed.");
       setDeployPhase("failed");
     }
-  }, [chain]);
+  }, [capabilities, chain, signedIn]);
 
   const value = useMemo<CustomLaunchContextValue>(() => {
+    const deployBlockedReason = sessionLoading
+      ? null
+      : !signedIn
+        ? "Sign in to broadcast this Custom Launch from your OrbitX desk."
+        : !capabilities
+          ? "Could not load chain capability."
+          : !capabilities.tokenCreate
+            ? capabilities.note
+            : null;
     return {
       chain,
       meta: CUSTOM_CHAIN_META[chain],
@@ -203,6 +272,12 @@ export function CustomLaunchDraftProvider({
       total: CUSTOM_LAUNCH_STEPS.length,
       ready: launchIsReady(draft),
       missing: incompleteSteps(draft),
+      signedIn,
+      handle,
+      sessionLoading,
+      capabilities,
+      canBroadcast: Boolean(signedIn && capabilities?.tokenCreate),
+      deployBlockedReason,
       deployPhase,
       deployStage,
       deployResult,
@@ -212,6 +287,7 @@ export function CustomLaunchDraftProvider({
       startDeploy,
     };
   }, [
+    capabilities,
     chain,
     closeDeployConfirm,
     deployError,
@@ -220,10 +296,13 @@ export function CustomLaunchDraftProvider({
     deployStage,
     draft,
     goAdjacent,
+    handle,
     markReviewed,
     openDeployConfirm,
     patch,
     reset,
+    sessionLoading,
+    signedIn,
     startDeploy,
     step,
     update,

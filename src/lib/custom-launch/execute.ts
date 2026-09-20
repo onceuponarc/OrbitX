@@ -3,11 +3,13 @@ import "server-only";
 import { customLaunchAdapter, enabledExecuteActions } from "@/lib/custom-launch/onchain";
 import { assertAllowedAction, protocolDestinationForChain, type ExecuteAction } from "@/lib/custom-launch/onchain/validate";
 import {
+  insertDistributions,
   insertExecution,
   loadLaunchById,
   updateExecution,
 } from "@/lib/custom-launch/persist";
 import { verifyHolderRecipients, type HolderRecipient } from "@/lib/custom-launch/holders";
+import { syncLaunchVaults } from "@/lib/custom-launch/sync";
 
 function randomExecId() {
   return `exec-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -100,6 +102,15 @@ export async function executeCustomLaunchAction(input: {
       confirmed_at: new Date().toISOString(),
       error: null,
     });
+    if (input.action === "holders" && recipients?.length) {
+      await insertDistributions({
+        launchId: launch.id,
+        executionId: row.id,
+        recipients,
+        txHash: result.txHash,
+      });
+    }
+    await syncLaunchVaults(launch).catch(() => undefined);
     return { ...result, executionId: row.id, execId };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Strategy execution failed.";

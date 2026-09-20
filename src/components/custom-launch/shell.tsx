@@ -28,8 +28,9 @@ export function CustomLaunchShell({ children }: { children: ReactNode }) {
                 Configure the print
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/55">
-                Advanced desk for token economics, markets, liquidity, and automation. Local preview
-                only — nothing is broadcast from this screen.
+                Advanced desk for token economics, markets, liquidity, and automation. The draft stays
+                local until you deploy. Deploy broadcasts from the OrbitX desk and needs a confirmed
+                chain receipt.
               </p>
             </div>
             <button

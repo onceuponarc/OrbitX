@@ -23,9 +23,13 @@ const types = [
   "../src/lib/custom-launch/execute.ts",
   "../src/lib/custom-launch/deploy.ts",
   "../src/lib/custom-launch/persist.ts",
+  "../src/lib/custom-launch/sync.ts",
+  "../src/lib/custom-launch/recipients.ts",
   "../src/lib/custom-launch/automation.ts",
   "../src/app/api/custom-launch/deploy/route.ts",
   "../src/app/api/custom-launch/execute/route.ts",
+  "../src/app/api/custom-launch/automation/route.ts",
+  "../src/app/api/custom-launch/capability/route.ts",
   "../src/app/api/solana/launch/route.ts",
   "../src/app/api/arc/launch/route.ts",
   "../src/app/api/rh/launch/route.ts",
@@ -91,6 +95,16 @@ const persist = read("../src/lib/custom-launch/persist.ts");
 assert(persist.includes("Cannot mark a Custom Launch live without a confirmed transaction"), "live requires tx");
 assert(persist.includes("Completed executions require a confirmed transaction hash"), "completed requires hash");
 assert(persist.includes("custom_launches"), "uses custom_launches not stories");
+assert(persist.includes('role: "secondary"'), "secondary markets are persisted");
+assert(persist.includes("insertDistributions"), "holder distributions are written");
+
+const sync = read("../src/lib/custom-launch/sync.ts");
+assert(sync.includes("readHubBalance") || sync.includes("getTokenAccountBalance"), "vault sync reads chain balances");
+assert(sync.includes("volume: 0"), "volume is not faked");
+
+const autoRoute = read("../src/app/api/custom-launch/automation/route.ts");
+assert(autoRoute.includes("liveReadingsForLaunch"), "automation uses chain readings");
+assert(autoRoute.includes("holderLines"), "automation can pass holder recipients");
 
 const normalSolana = read("../src/app/api/solana/launch/route.ts");
 const normalArc = read("../src/app/api/arc/launch/route.ts");
@@ -112,9 +126,13 @@ assert(desk.includes("Claim creator fees"), "desk has creator claim");
 assert(desk.includes("/api/custom-launch/execute"), "desk hits execute API");
 assert(!desk.includes("Remove liquidity"), "desk has no remove liquidity");
 assert(desk.includes("Buyback & burn"), "desk can show buyback & burn");
+assert(desk.includes("Holder recipients"), "desk captures holder recipients");
+assert(desk.includes("Live readings") || desk.includes("Automation inputs"), "desk exposes live readings");
+assert(desk.includes("parseHolderLines"), "desk parses holder lines");
 
 const provider = read("../src/components/custom-launch/draft-provider.tsx");
 assert(provider.includes("/api/custom-launch/deploy"), "wizard deploys through Custom Launch API");
+assert(provider.includes("/api/custom-launch/capability"), "wizard checks chain capability and session");
 assert(!provider.includes("/api/solana/launch"), "wizard does not call Normal Solana launch");
 assert(!provider.includes("/api/arc/launch"), "wizard does not call Normal Arc launch");
 assert(provider.includes("Deployment did not confirm on-chain"), "wizard requires a confirmed hash");
@@ -253,5 +271,16 @@ assert(
 );
 assert(cooldownOpen(null, 60), "no last run means cooldown is open");
 assert(!cooldownOpen(new Date().toISOString(), 3600), "fresh execution is cooling down");
+
+const { parseHolderLines } = await import("../src/lib/custom-launch/recipients.ts");
+const parsed = parseHolderLines("WalletOne 1000\nWalletTwo,2000\n");
+assert(parsed.length === 2 && parsed[1].amount === "2000", "holder lines parse address and amount");
+let holderThrew = false;
+try {
+  parseHolderLines("incomplete-line");
+} catch {
+  holderThrew = true;
+}
+assert(holderThrew, "malformed holder lines are rejected");
 
 console.log(JSON.stringify({ ok: true, customLaunch: "onchain-phase-2" }));

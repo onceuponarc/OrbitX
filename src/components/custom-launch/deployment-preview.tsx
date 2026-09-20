@@ -6,9 +6,11 @@ import { reviewSnapshot } from "@/lib/custom-launch/review";
 import { cn } from "@/lib/utils";
 
 export function DeploymentPreview() {
-  const { draft, meta, openDeployConfirm } = useCustomLaunch();
+  const { draft, meta, openDeployConfirm, signedIn, sessionLoading, canBroadcast, deployBlockedReason, capabilities } =
+    useCustomLaunch();
   const snap = reviewSnapshot(draft);
   const ready = snap.ready;
+  const blocked = Boolean(deployBlockedReason) || sessionLoading || !canBroadcast;
 
   return (
     <section className="ox-console relative overflow-hidden rounded-[1.5rem] p-5 lg:p-7">
@@ -33,21 +35,38 @@ export function DeploymentPreview() {
           <PreviewRow label="Markets" value={snap.preview.markets} />
         </div>
 
+        {deployBlockedReason ? (
+          <div className="mt-6 rounded-2xl border border-heat/30 bg-heat/10 px-4 py-3 text-sm text-heat">
+            <p>{deployBlockedReason}</p>
+            {!signedIn ? (
+              <a href="/auth/login" className="mt-2 inline-block font-mono text-[11px] uppercase tracking-[0.14em] text-gold">
+                Sign in
+              </a>
+            ) : null}
+          </div>
+        ) : capabilities && !capabilities.poolCreate ? (
+          <p className="mt-6 text-sm text-white/50">{capabilities.note}</p>
+        ) : null}
+
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Button
             type="button"
             size="lg"
-            disabled={!ready}
+            disabled={!ready || blocked}
             onClick={openDeployConfirm}
             className={cn(
               "h-12 min-w-[220px] rounded-2xl px-5 text-base font-semibold",
-              ready && "bg-gold text-ink hover:bg-gold/90",
+              ready && !blocked && "bg-gold text-ink hover:bg-gold/90",
             )}
           >
             Deploy Custom Launch
           </Button>
           {!ready ? (
             <p className="text-sm text-heat">Configuration required — finish the failing Launch Readiness rows.</p>
+          ) : blocked ? (
+            <p className="text-xs text-white/40">
+              {sessionLoading ? "Checking desk capability…" : "Fix the desk gate above before broadcasting."}
+            </p>
           ) : (
             <p className="text-xs text-white/40">Opens a confirmation, then broadcasts if you continue.</p>
           )}

@@ -12,6 +12,7 @@ import {
 } from "@/lib/custom-launch/persist";
 import { customLaunchAdapter, enabledExecuteActions } from "@/lib/custom-launch/onchain";
 import { protocolDestinationForChain } from "@/lib/custom-launch/onchain/validate";
+import { liveReadingsForLaunch, syncLaunchVaults } from "@/lib/custom-launch/sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,11 +36,12 @@ export async function GET(request: Request) {
     if (!isAuthor) {
       return NextResponse.json({ launch: publicView, activity, capabilities: caps, author: false });
     }
-    const [vaults, splits, rules, executions] = await Promise.all([
-      loadVaults(launch.id),
+    const vaults = await syncLaunchVaults(launch).catch(() => loadVaults(launch.id));
+    const [splits, rules, executions, readings] = await Promise.all([
       loadSplits(launch.id),
       loadRules(launch.id),
       loadAuthorExecutions(launch.id),
+      liveReadingsForLaunch(launch, vaults),
     ]);
     return NextResponse.json({
       launch: publicView,
@@ -50,6 +52,7 @@ export async function GET(request: Request) {
       splits,
       rules,
       executions,
+      readings,
       enabledActions: enabledExecuteActions(launch.config.mode, launch.config),
       destinations: {
         creator: launch.creator_address,

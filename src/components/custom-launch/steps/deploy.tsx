@@ -9,7 +9,8 @@ import { useCustomLaunch } from "@/components/custom-launch/draft-provider";
 import { launchModeTitle } from "@/lib/custom-launch/schema";
 
 export function DeployStep() {
-  const { draft, meta, ready, missing, setStep, deployPhase } = useCustomLaunch();
+  const { draft, meta, ready, missing, setStep, deployPhase, signedIn, handle, capabilities, deployBlockedReason } =
+    useCustomLaunch();
 
   if (deployPhase === "running") return <DeploymentProgress />;
   if (deployPhase === "ready" || deployPhase === "failed") return <DeploymentSuccess />;
@@ -21,13 +22,24 @@ export function DeployStep() {
         title="Broadcast the Custom Launch."
         body="Deployment is signed by the OrbitX desk, not the browser wallet. Strategy vaults are protocol-controlled. Normal Launch is unchanged."
       >
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <MetricTile label="Venue" value={meta.longLabel} hint={meta.venue} />
           <MetricTile label="Launch type" value="Custom" tone="live" />
           <MetricTile
             label="Desk state"
             value={draft.reviewedAt ? "Reviewed" : ready ? "Ready to review" : "Incomplete"}
             tone={draft.reviewedAt ? "live" : ready ? "default" : "warn"}
+          />
+          <MetricTile
+            label="Session"
+            value={!signedIn ? "Sign in required" : handle ? `@${handle}` : "Signed in"}
+            tone={signedIn ? "live" : "warn"}
+          />
+          <MetricTile
+            label="Chain desk"
+            value={capabilities?.tokenCreate ? "Token create live" : "Not deployable"}
+            tone={capabilities?.tokenCreate ? "live" : "warn"}
+            hint={capabilities?.poolCreate ? "Pool included" : "Pool unsupported"}
           />
         </div>
 
@@ -39,6 +51,17 @@ export function DeployStep() {
             confirmed transaction hash.
           </p>
         </div>
+
+        {deployBlockedReason ? (
+          <p className="mt-4 rounded-2xl border border-heat/30 bg-heat/10 px-4 py-3 text-sm text-heat">
+            {deployBlockedReason}{" "}
+            {!signedIn ? (
+              <a href="/auth/login" className="font-mono text-[11px] uppercase tracking-[0.14em] text-gold">
+                Sign in
+              </a>
+            ) : null}
+          </p>
+        ) : null}
 
         {!ready ? (
           <div className="mt-5 space-y-2">

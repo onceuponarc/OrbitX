@@ -20,12 +20,14 @@ export function StepFooter() {
       </Button>
       <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/40">
         {step === "deploy" && deployPhase === "running"
-          ? "Local preview in motion — nothing is broadcast"
+          ? "Broadcasting — waiting for a chain receipt"
           : step === "deploy" && deployPhase === "ready"
-            ? "Mock / demo complete — still not deployed"
-            : step === "deploy"
-              ? "Preview only — nothing is broadcast"
-              : blocked
+            ? "On-chain deployment confirmed"
+            : step === "deploy" && deployPhase === "failed"
+              ? "Deployment did not confirm"
+              : step === "deploy"
+                ? "Deploy broadcasts a real transaction"
+                : blocked
                 ? "Fix validation before continuing"
                 : status === "complete" || status === "ready"
                   ? "This step is set"
