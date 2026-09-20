@@ -1,3 +1,5 @@
+import { orbitxPairedAmount } from "./orbitx-seed.ts";
+
 export const PRIMARY_QUOTES = ["sol", "usdc"] as const;
 export type PrimaryQuoteId = (typeof PRIMARY_QUOTES)[number];
 
@@ -78,19 +80,19 @@ export const LIQUIDITY_SOURCE_META: Record<
 > = {
   orbitx: {
     title: "OrbitX Infrastructure",
-    body: "Future OrbitX liquidity rails. Nothing is connected from this screen.",
+    body: "OrbitX opens the public book at launch — PumpSwap on Solana, Uniswap-style AMM on Arc. You do not deposit quote.",
   },
   external: {
     title: "External Pool",
-    body: "Attach an external venue later. Placeholder only — no DEX is called.",
+    body: "Recorded only. Custom Launch still seeds the primary book from OrbitX inventory.",
   },
   existing: {
     title: "Existing Liquidity",
-    body: "Point at liquidity you already control. Configuration only.",
+    body: "Recorded only. The launch pool is still opened by OrbitX, not from your wallet.",
   },
   custom: {
     title: "Custom",
-    body: "Manual or other source. Recorded locally for a later integration.",
+    body: "Recorded only. Quote liquidity is not pulled from the creator desk.",
   },
 };
 
@@ -111,7 +113,7 @@ export type PoolEstimate = {
 export function createPoolConfig(quote: QuoteAssetId = "sol"): PoolConfig {
   return {
     tokenAllocation: "200000000",
-    pairedAmount: quote === "sol" ? "50" : quote === "usdc" ? "5000" : "1",
+    pairedAmount: quote === "usdc" ? orbitxPairedAmount("usdc") : quote === "sol" ? orbitxPairedAmount("sol") : "1",
   };
 }
 
@@ -246,8 +248,13 @@ export function formatRatio(tokenAmount: number, pairedAmount: number, quoteLabe
   return `${tokensPerQuote.toLocaleString("en-US", { maximumFractionDigits: 2 })} / 1 ${quoteLabel}`;
 }
 
+export function resolvedPrimaryPool(markets: MarketsConfig): PoolConfig {
+  if (markets.primary.liquidity.source !== "orbitx") return markets.primary.pool;
+  return { ...markets.primary.pool, pairedAmount: orbitxPairedAmount(markets.primary.quote) };
+}
+
 export function primaryEstimate(markets: MarketsConfig, totalSupply: string) {
-  return estimatePool(markets.primary.pool, markets.primary.quote, totalSupply);
+  return estimatePool(resolvedPrimaryPool(markets), markets.primary.quote, totalSupply);
 }
 
 export function primaryMarketComplete(markets: MarketsConfig, totalSupply = "1000000000") {

@@ -20,7 +20,9 @@ const types = [
   "../src/lib/custom-launch/onchain/evm.ts",
   "../src/lib/custom-launch/onchain/solana.ts",
   "../src/lib/custom-launch/onchain/solana-pool.ts",
+  "../src/lib/custom-launch/onchain/solana-pumpswap.ts",
   "../src/lib/custom-launch/onchain/solana-keys.ts",
+  "../src/lib/custom-launch/onchain/evm-uniswap.ts",
   "../src/lib/custom-launch/onchain/pool-math.ts",
   "../src/lib/custom-launch/onchain/actions.ts",
   "../src/lib/custom-launch/execute.ts",
@@ -84,6 +86,17 @@ assert(solana.includes("protocol.publicKey"), "Solana mint/withdraw authority is
 assert(solana.includes("customLaunchVaultKeypair"), "Solana vaults are protocol-derived");
 assert(!solana.includes("exportDeskSecret"), "strategy vaults must not use exportable desk secrets");
 assert(solana.includes("Remove liquidity is not a Custom Launch action"), "Solana adapter blocks remove-liquidity");
+assert(solana.includes("seedSolanaPumpSwapPool"), "Solana deploy opens a PumpSwap book");
+assert(solana.includes("preflightOrbitxPumpSwap"), "Solana deploy preflights OrbitX quote, not the desk");
+assert(!solana.includes("preflightSolanaPoolSeed"), "Solana deploy does not bill the desk for quote liquidity");
+assert(!solana.includes("seedSolanaCustomLaunchPool"), "Solana deploy does not seed the homemade CPMM as the public book");
+
+const pumpswap = read("../src/lib/custom-launch/onchain/solana-pumpswap.ts");
+assert(pumpswap.includes("createPoolInstructions"), "PumpSwap create is the public book");
+assert(pumpswap.includes("The creator is not charged for quote liquidity"), "PumpSwap preflight refuses to bill the creator");
+assert(!pumpswap.includes('from("stories")'), "Custom Launch PumpSwap does not write stories");
+assert(!pumpswap.includes("withdrawInstructions"), "Custom Launch PumpSwap never withdraws LP");
+assert(!pumpswap.includes("pumpswap-pool"), "Custom Launch PumpSwap is isolated from Normal Launch graduation");
 
 const solanaPool = read("../src/lib/custom-launch/onchain/solana-pool.ts");
 assert(solanaPool.includes("addLiquidityUnits"), "Solana pool uses add-only CPMM units");
@@ -101,6 +114,14 @@ const evm = read("../src/lib/custom-launch/onchain/evm.ts");
 assert(evm.includes("waitForTransactionReceipt"), "EVM waits for confirmation");
 assert(evm.includes("receipt.status !== \"success\""), "EVM rejects reverted receipts");
 assert(evm.includes("harvestAll"), "EVM can harvest the fee router");
+assert(evm.includes("CUSTOM_LAUNCH_EVM_SEEDER_KEY") || evm.includes("evmSeederClients"), "EVM createLaunch is seeder-funded");
+assert(evm.includes("The creator is not asked to deposit quote"), "EVM refuses to bill the creator for quote");
+assert(evm.includes("seedUniswapV2Pool"), "EVM attempts Uniswap V2 when the seeder holds both sides");
+
+const evmUni = read("../src/lib/custom-launch/onchain/evm-uniswap.ts");
+assert(evmUni.includes("addLiquidity"), "Uniswap helper can add liquidity");
+assert(!evmUni.includes("removeLiquidity"), "Uniswap helper has no remove");
+assert(!evmUni.includes("function remove"), "Uniswap helper has no remove function");
 
 const validate = read("../src/lib/custom-launch/onchain/validate.ts");
 assert(validate.includes("ORBITX_PROTOCOL"), "protocol dest is centralized");

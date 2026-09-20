@@ -73,6 +73,18 @@ export default async function CustomTokenPage({ params }: Props) {
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           <AddressRow label="Token" value={view.tokenAddress ?? "—"} />
           <AddressRow label="Pool" value={view.poolAddress ?? "Not created on this chain"} />
+          {view.chain === "solana" && view.poolAddress && view.tokenAddress ? (
+            <>
+              <AddressRow
+                label="DexScreener"
+                value={`https://dexscreener.com/solana/${view.poolAddress}`}
+              />
+              <AddressRow
+                label="PumpSwap"
+                value={`https://swap.pump.fun/?inputMint=${view.quoteAddress || "So11111111111111111111111111111111111111112"}&outputMint=${view.tokenAddress}`}
+              />
+            </>
+          ) : null}
           <AddressRow label="Deploy tx" value={view.deployTx ?? "—"} />
         </div>
         <Socials socials={view.socials} />
@@ -81,7 +93,7 @@ export default async function CustomTokenPage({ params }: Props) {
       <section className="ox-console rounded-[1.5rem] p-6">
         <h2 className="text-xl font-semibold">Markets</h2>
         <p className="mt-1 text-sm text-white/45">
-          Primary is created when this launch has a Custom Launch pool. Secondary books are recorded, not deployed.
+          Primary is created at launch from OrbitX inventory (PumpSwap on Solana). Secondary books are recorded, not deployed.
         </p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {view.markets.map((market, index) => (
@@ -157,10 +169,17 @@ function Meta({ label, value }: { label: string; value: string }) {
 }
 
 function AddressRow({ label, value }: { label: string; value: string }) {
+  const href = value.startsWith("http://") || value.startsWith("https://") ? value : null;
   return (
     <div className="rounded-2xl border border-white/10 px-4 py-3">
       <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/35">{label}</p>
-      <p className="mt-1 break-all font-mono text-xs text-white/70">{value}</p>
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer" className="mt-1 block break-all font-mono text-xs text-gold/80">
+          {value}
+        </a>
+      ) : (
+        <p className="mt-1 break-all font-mono text-xs text-white/70">{value}</p>
+      )}
     </div>
   );
 }

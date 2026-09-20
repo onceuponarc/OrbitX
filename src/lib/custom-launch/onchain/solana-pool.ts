@@ -514,10 +514,12 @@ async function harvestWithheldToRouter(
   const owners: PublicKey[] = [
     customLaunchPoolKeypair(ctx.launchId).publicKey,
     customLaunchFeeRouterKeypair(ctx.launchId).publicKey,
+    protocol.publicKey,
     ...VAULT_DESTS.map((dest) =>
       dest === "orbitx" ? protocolOwner() : customLaunchVaultKeypair(ctx.launchId, dest).publicKey,
     ),
   ];
+  if (ctx.poolAddress) owners.push(new PublicKey(ctx.poolAddress));
   if (ctx.creatorAddress) owners.push(new PublicKey(ctx.creatorAddress));
   const sources: PublicKey[] = [];
   for (const owner of owners) {

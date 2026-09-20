@@ -14,8 +14,8 @@ export function LiquiditySource({
     <div>
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/45">Liquidity source</p>
       <p className="mt-1 text-sm text-white/50">
-        OrbitX does not provide the creator&apos;s liquidity capital. Liquidity is configured and
-        connected through supported external infrastructure later.
+        OrbitX seeds the launch pool. Solana opens a PumpSwap book; Arc uses a Uniswap-style AMM. The
+        creator desk is not charged for quote liquidity.
       </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {LIQUIDITY_SOURCES.map((id) => {

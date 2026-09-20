@@ -26,6 +26,7 @@ import {
   type PoolConfig,
   type SecondaryMarket,
 } from "@/lib/custom-launch/markets";
+import { orbitxPairedAmount } from "@/lib/custom-launch/orbitx-seed";
 import {
   createLaunchModeState,
   isLaunchStrategyId,
@@ -142,14 +143,18 @@ function parseMarketsConfig(raw: unknown): MarketsConfig {
       })
     : [];
   const accessRaw = isRecord(raw.access) ? raw.access : {};
+  const source =
+    isRecord(primaryRaw.liquidity) && isLiquiditySourceId(primaryRaw.liquidity.source)
+      ? primaryRaw.liquidity.source
+      : base.primary.liquidity.source;
+  const pool = parsePoolConfig(primaryRaw.pool, quote);
+  if (source === "orbitx") pool.pairedAmount = orbitxPairedAmount(quote);
   return {
     primary: {
       quote,
-      pool: parsePoolConfig(primaryRaw.pool, quote),
+      pool,
       liquidity: {
-        source: isRecord(primaryRaw.liquidity) && isLiquiditySourceId(primaryRaw.liquidity.source)
-          ? primaryRaw.liquidity.source
-          : base.primary.liquidity.source,
+        source,
       },
       advanced: {
         slippageBps:

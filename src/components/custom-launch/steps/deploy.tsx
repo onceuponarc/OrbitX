@@ -47,7 +47,8 @@ export function DeployStep() {
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-gold">On-chain desk</p>
           <p className="mt-2 text-sm leading-relaxed text-white/70">
             Confirming this print creates the token and, where the chain supports a Custom Launch pool,
-            the add-only book, fee router, and strategy vaults. Remove-liquidity is not available. Success
+            an OrbitX-seeded public book (PumpSwap on Solana, Uniswap-style AMM on Arc), fee router, and
+            strategy vaults. You do not deposit quote liquidity. Remove-liquidity is not available. Success
             requires a confirmed transaction hash.
           </p>
         </div>

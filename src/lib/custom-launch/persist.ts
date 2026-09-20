@@ -3,7 +3,7 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { CustomLaunchDraft } from "@/lib/custom-launch/schema";
 import { resolvedFeeAllocations } from "@/lib/custom-launch/fees";
-import { quoteTicker } from "@/lib/custom-launch/markets";
+import { quoteTicker, resolvedPrimaryPool } from "@/lib/custom-launch/markets";
 import { mapRuleAction } from "@/lib/custom-launch/onchain/actions";
 import type { DeployResult } from "@/lib/custom-launch/onchain/types";
 import type { PrintableChain } from "@onceupon/config/solana";
@@ -115,12 +115,13 @@ export async function persistConfigRows(launchId: string, draft: CustomLaunchDra
     const { error } = await supabase.from("custom_launch_vaults").upsert(vaults);
     if (error) throw new Error(error.message);
   }
+  const primaryPool = resolvedPrimaryPool(draft.markets);
   const { error: marketError } = await supabase.from("custom_launch_markets").insert({
     launch_id: launchId,
     role: "primary",
     quote_symbol: draft.markets.primary.quote,
-    token_liquidity: draft.markets.primary.pool.tokenAllocation || null,
-    quote_liquidity: draft.markets.primary.pool.pairedAmount || null,
+    token_liquidity: primaryPool.tokenAllocation || null,
+    quote_liquidity: primaryPool.pairedAmount || null,
     status: "pending",
   });
   if (marketError) throw new Error(marketError.message);
@@ -369,6 +370,7 @@ export async function publicLaunchView(launch: LaunchRow) {
     tradeFeeBps: launch.trade_fee_bps,
     tokenAddress: launch.token_address,
     poolAddress: launch.pool_address,
+    quoteAddress: launch.quote_address,
     deployTx: launch.deploy_tx,
     deployedAt: launch.deployed_at,
     splits: splits.map((row) => ({ dest: row.dest as string, bps: row.bps as number })),

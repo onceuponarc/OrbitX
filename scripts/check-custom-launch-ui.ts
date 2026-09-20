@@ -173,10 +173,13 @@ assert(marketsSrc.includes("export type SecondaryMarket"), "SecondaryMarket type
 assert(marketsSrc.includes("export type PoolConfig"), "PoolConfig type exists");
 assert(marketsSrc.includes("export type LiquidityConfig"), "LiquidityConfig type exists");
 assert(marketsSrc.includes('quote: "sol"'), "default primary quote is SOL");
+assert(marketsSrc.includes("orbitxPairedAmount"), "primary quote seed is OrbitX-funded");
 assert(primaryStep.includes("QuoteSelect"), "primary step has SOL/USDC cards");
 assert(primaryStep.includes("PoolDesk"), "primary step has pool configuration");
 assert(primaryStep.includes("LiquiditySource"), "primary step has liquidity source");
 assert(primaryStep.includes("AdvancedMarket"), "primary step has advanced settings");
+assert(primaryStep.includes("You do not deposit"), "primary step says the creator does not fund LP");
+assert(!primaryStep.includes("no liquidity is posted and no pair is created"), "primary step no longer says no pair is created");
 assert(marketsSrc.includes("Select a primary market to continue."), "primary validation copy is centralized");
 assert(marketsSrc.includes("Enter a valid liquidity amount."), "liquidity validation copy is centralized");
 assert(marketsSrc.includes("Complete this market or remove it."), "secondary incomplete copy is centralized");
@@ -187,6 +190,16 @@ assert(!primaryStep.includes("/api/"), "primary market must not call APIs");
 assert(!secondaryStep.includes("/api/"), "secondary markets must not call APIs");
 assert(!primaryStep.includes("sendTransaction"), "primary market must not send txs");
 assert(draftSrc.includes("orbitx.custom-launch.v4."), "draft storage is v4");
+
+const poolDesk = readFileSync(new URL("../src/components/custom-launch/pool-desk.tsx", import.meta.url), "utf8");
+const liqSource = readFileSync(new URL("../src/components/custom-launch/liquidity-source.tsx", import.meta.url), "utf8");
+assert(poolDesk.includes("you do not deposit"), "pool desk says the creator does not deposit quote");
+assert(!poolDesk.includes("OrbitX does not size or seed"), "pool desk no longer says OrbitX does not seed");
+assert(liqSource.includes("creator desk is not charged for quote"), "liquidity source says OrbitX funds quote");
+assert(!liqSource.includes("OrbitX does not provide the creator"), "liquidity source no longer says OrbitX does not provide capital");
+
+const { ORBITX_POOL_SEED } = await import("../src/lib/custom-launch/orbitx-seed.ts");
+assert(ORBITX_POOL_SEED.sol === "0.05" && ORBITX_POOL_SEED.usdc === "50", "OrbitX seed amounts");
 
 const {
   availableSecondaryQuotes,
@@ -201,6 +214,7 @@ const {
 
 const markets = createMarketsConfig();
 assert(markets.primary.quote === "sol", "default primary market is SOL");
+assert(markets.primary.pool.pairedAmount === "0.05", "default SOL seed is OrbitX inventory");
 assert(primaryMarketComplete(markets, "1000000000"), "default SOL pool is complete");
 assert(!primaryMarketError(markets, "1000000000"), "default primary has no error");
 assert(

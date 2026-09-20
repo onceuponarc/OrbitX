@@ -72,6 +72,18 @@ contract CustomLaunchTest {
         require(token.balanceOf(address(hub)) == 0, "hub leftover");
     }
 
+    function testSeederPaysQuoteCreatorDoesNot() public {
+        QuoteSeeder seeder = new QuoteSeeder();
+        address author = address(0xA070);
+        usdc.mint(address(seeder), 10_000e6);
+        uint256 authorUsdc = usdc.balanceOf(author);
+        LaunchTypes.CreateParams memory p = _params();
+        p.creator = author;
+        seeder.seed(factory, usdc, p);
+        require(usdc.balanceOf(address(seeder)) == 0, "seeder spent quote");
+        require(usdc.balanceOf(author) == authorUsdc, "creator quote untouched");
+    }
+
     function testFeeCapRejected() public {
         LaunchTypes.CreateParams memory p = _params();
         p.tradeFeeBps = 501;
@@ -246,5 +258,12 @@ contract CustomLaunchTest {
 contract Thief {
     function steal(StrategyHub hub) external {
         hub.execute(keccak256("steal"), 8, 1, 0);
+    }
+}
+
+contract QuoteSeeder {
+    function seed(CustomLaunchFactory factory, MockUSDC usdc, LaunchTypes.CreateParams memory p) external {
+        usdc.approve(address(factory), p.quoteLiquidity);
+        factory.createLaunch(p);
     }
 }

@@ -22,6 +22,7 @@ export function PoolDesk({
   tokenLabel,
   totalSupply,
   onChange,
+  quoteLocked = false,
 }: {
   quote: QuoteAssetId;
   customTicker?: string;
@@ -30,6 +31,7 @@ export function PoolDesk({
   tokenLabel: string;
   totalSupply?: string;
   onChange: (next: Partial<PoolConfig>) => void;
+  quoteLocked?: boolean;
 }) {
   const quoteLabel = quoteTicker(quote, customTicker);
   const allocatedPct = liquidityAllocationPct(pool.tokenAllocation, totalSupply ?? "");
@@ -38,7 +40,8 @@ export function PoolDesk({
     <div>
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-white/45">Pool configuration</p>
       <p className="mt-1 text-sm text-white/50">
-        Local estimates only. OrbitX does not size or seed a pool from these fields.
+        Size the token side. OrbitX posts the quote and opens the public book at launch — you do not deposit
+        SOL or USDC.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <Field
@@ -54,13 +57,18 @@ export function PoolDesk({
           />
         </Field>
         <Field
-          label={`Initial paired ${quoteLabel}`}
+          label={`OrbitX ${quoteLabel} seed`}
           error={estimate.error && !Number(pool.pairedAmount) ? estimate.error : undefined}
+          hint={quoteLocked ? "Protocol inventory. Not taken from your desk." : undefined}
         >
           <Input
             value={pool.pairedAmount}
+            readOnly={quoteLocked}
             aria-invalid={Boolean(estimate.error && !Number(pool.pairedAmount))}
-            onChange={(event) => onChange({ pairedAmount: event.target.value.replace(/[^\d.]/g, "") })}
+            onChange={(event) => {
+              if (quoteLocked) return;
+              onChange({ pairedAmount: event.target.value.replace(/[^\d.]/g, "") });
+            }}
             placeholder="0"
           />
         </Field>
