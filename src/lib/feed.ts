@@ -96,6 +96,11 @@ const HIDDEN_TEST_LAUNCH_SLUGS = new Set([
   "eth-cat-8c3y",
   "grok-3b8q",
   "cagt-z02y",
+  "cate-yk9e",
+  "cate-vvi6",
+  "shielded-cat-gz90",
+  "shielded-cat-4lpj",
+  "pons-s1eb",
 ]);
 
 const HIDDEN_TEST_TICKERS = new Set([
@@ -115,6 +120,9 @@ const HIDDEN_TEST_TICKERS = new Set([
   "TROLLPEPE",
   "ELON",
   "ELONMUSK",
+  "CATE",
+  "SHCAT",
+  "SHIELDEDCAT",
 ]);
 
 function normTicker(ticker: string): string {

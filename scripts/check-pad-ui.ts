@@ -50,6 +50,10 @@ assert(home.includes("$ORBITX"), "home still points at official $ORBITX");
 
 const feed = readFileSync(new URL("../src/lib/feed.ts", import.meta.url), "utf8");
 assert(feed.includes("cursor-agent-p29a"), "hides the CAGT test launch");
+assert(feed.includes("cate-yk9e"), "hides today's $CATE test launch");
+assert(feed.includes("shielded-cat-gz90"), "hides the Shielded Cat test launch");
+assert(feed.includes("pons-s1eb"), "hides the Pons test launch");
+assert(feed.includes("isOfficialLaunch"), "test hides never apply to $ORBITX");
 assert(feed.includes("OFFICIAL_LAUNCH_SLUG"), "official $ORBITX is a board row");
 assert(feed.includes("officialFeedLaunch"), "builds the live $ORBITX feed row");
 
