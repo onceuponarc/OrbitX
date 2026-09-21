@@ -48,6 +48,22 @@ assert(!home.includes("CardRail"), "home must not show press-card NFTs");
 assert(!home.includes("/cards"), "home shortcuts must not link to cards");
 assert(home.includes("$ORBITX"), "home still points at official $ORBITX");
 
+const urls = readFileSync(new URL("../packages/config/src/urls.ts", import.meta.url), "utf8");
+assert(urls.includes('PUBLIC_SITE_URL = "https://www.orbitxtrade.world"'), "canonical pad is orbitxtrade.world");
+assert(urls.includes("LEGACY_LAUNCHPAD_URL"), "old orbitxlaunch URL is kept, not deleted");
+assert(urls.includes("https://www.orbitx.world/orbitxlaunch"), "legacy URL stays in config only");
+
+const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+assert(nextConfig.includes('source: "/orbitxlaunch"'), "old /orbitxlaunch path is hidden behind a redirect");
+assert(nextConfig.includes('destination: "/"'), "old launch path lands on the new pad");
+
+assert(footer.includes("Launchpad"), "footer labels the new pad");
+assert(!footer.includes("orbitx.world/orbitxlaunch"), "footer must not link the old launch pad");
+
+const links = readFileSync(new URL("../src/components/links/share-deck.tsx", import.meta.url), "utf8");
+assert(links.includes("PUBLIC_SITE_URL"), "share deck uses the new pad URL");
+assert(!links.includes("orbitx.world/orbitxlaunch"), "share deck must not link the old launch pad");
+
 const feed = readFileSync(new URL("../src/lib/feed.ts", import.meta.url), "utf8");
 assert(feed.includes("cursor-agent-p29a"), "hides the CAGT test launch");
 assert(feed.includes("cate-yk9e"), "hides today's $CATE test launch");

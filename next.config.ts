@@ -45,6 +45,8 @@ const nextConfig: NextConfig = {
       { source: "/claims", destination: "/ledger", permanent: false },
       { source: "/write", destination: "/launch", permanent: false },
       { source: "/bindings/link", destination: "/bindings", permanent: false },
+      { source: "/orbitxlaunch", destination: "/", permanent: false },
+      { source: "/orbitxlaunch/:path*", destination: "/", permanent: false },
     ];
   },
 };

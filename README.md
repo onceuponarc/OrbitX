@@ -5,7 +5,7 @@ Multi-chain launchpad. Trade, print, and graduate.
 **Official token:** `$ORBITX`  
 **CA:** `13H4WJvGEg4xrrBwWn2vsQgz7xhmhxgNdw19i1QsxPX9`  
 **X:** [x.com/orbitx_wrld](https://x.com/orbitx_wrld)  
-**Site:** [orbitx.world](https://www.orbitx.world/)  
+**Site:** [orbitxtrade.world](https://www.orbitxtrade.world/)  
 **Arc mainnet window:** Friday
 
 ## What this pad does

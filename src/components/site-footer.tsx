@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 
 const COLS = [
   {
@@ -24,7 +25,7 @@ const COLS = [
       { href: "/params", label: "$ORBITX live" },
       { href: "/links", label: "Links" },
       { href: "https://x.com/orbitx_wrld", label: "X" },
-      { href: "https://www.orbitxtrade.world/", label: "Updates" },
+      { href: `${PUBLIC_SITE_URL}/`, label: "Launchpad" },
     ],
   },
   {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { PUBLIC_SITE_URL } from "@onceupon/config/urls";
 
 type Card = {
   id: string;
@@ -50,8 +51,8 @@ const CARDS: Card[] = [
     kicker: "04 — Site",
     title: "Website",
     handle: "orbitxtrade.world",
-    body: "Official site. $ORBITX is live on Solana.",
-    href: "https://www.orbitxtrade.world/",
+    body: "Official launchpad. $ORBITX is live on Solana.",
+    href: `${PUBLIC_SITE_URL}/`,
     cta: "Open site",
     accent: "#a3a3a3",
   },
